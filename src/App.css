@@ -1,0 +1,325 @@
+
+/* styles.css */
+#miDiagrama {
+  background-color: rgb(222, 222, 228);
+  border: 1px solid gray;
+  position: absolute;
+  height: 100%;
+
+  top: 55px;  /* space for toolbar */
+  left: 250px; /* space for stencil */
+
+  /* Agrega más estilos según tus necesidades */
+}
+
+.pagina_principal {
+  background-image: url('./assets/images/fondo_blanco.png');
+  background-size: cover;
+  display:flex;
+  width: 100%;
+  height: 100vh;
+  justify-content: flex-end;
+  align-items: flex-start;
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 80px;
+
+}
+
+.boton_principal {
+  margin: 10px; /* Ajusta este valor según tus necesidades */
+}
+
+.pagina_login {
+  background-image: url('./assets/images/cubo.png');
+  background-size: cover;
+  display:flex;
+  width: 100%;
+  height: 100vh;
+  justify-content: center;
+  align-items: center;
+}
+
+.pagina_register {
+  background-image: url('./assets/images/cubo.png');
+  background-size: cover;
+  display:flex;
+  width: 100%;
+  height: 100vh;
+  justify-content: center;
+  padding: 40px;
+}
+
+.pagina_home {
+  background-image: url('./assets/images/cubob.png');
+  background-size: cover;
+  display:flex;
+  width: 100%;
+  height: 100vh;
+  justify-content: center;
+  padding: 10px;
+}
+
+.pagina_diagrama{
+  background-image: url('./assets/images/cubob.png');
+  background-size: cover;
+  display:flex;
+  width: 100%;
+  height: 100vh;
+  justify-content: center;
+  padding: 10px;
+}
+
+.navbar_home {
+  align-items: start;
+  color: white;
+}
+
+.boton_logout {
+  width: 100px;
+  height: 40px;
+  float: right;
+  margin-top: 5px;
+}
+
+.navbar_container {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  height: 55px;
+  z-index: 1000; 
+  background-color: rgb(31, 31, 50); 
+}
+
+.sidebar_home {
+  position: fixed;
+  top: 56px; 
+  left: 0;
+  width: 250px; 
+  height: calc(100% - 70px);
+  height: 100%;
+  overflow: auto;
+  padding: 10px;
+  background-color: #f8f9fa; 
+  }
+
+.sidebar_diagram {
+  position: fixed;
+  top: 56px; 
+  left: 0;
+  width: 250px; 
+  height: calc(100% - 70px);
+  height: 100%;
+  overflow: auto;
+  padding: 10px;
+  background-color: #f8f9fa; 
+}
+
+.main-content { /* para las tablas del home */
+  position: absolute;
+  top: 60px; 
+  left: 250px; 
+  width: calc(100% - 250px); 
+  height: calc(100% - 70px); 
+  overflow: auto;
+  padding: 10px;
+}
+
+.title {
+  font-size: 2em; 
+}
+
+.diagrama-container {
+  background-color: #f8f9fa; 
+  margin: 10px; /* Añade un poco de espacio alrededor de cada contenedor */
+  padding: 5px; /* Añade un poco de espacio entre el borde del contenedor y el diagrama */
+  border-radius: 4%;
+}
+.algo-algo {
+  background-color: #f8f9fa; 
+  margin: 10px; /* Añade un poco de espacio alrededor de cada contenedor */
+  padding: 5px; /* Añade un poco de espacio entre el borde del contenedor y el diagrama */
+  border-radius: 4%;
+
+}
+/****************************************************/
+.navbar_container_diagrama {
+  position: fixed;
+  /*top: 0;*/
+  width: 100%;
+  height: 55px;
+  z-index: 1000; 
+  background-color: rgb(31, 31, 50);
+  /*background-color: rgb(110, 173, 51);*/
+  
+}
+
+.texto_blanco{
+  float: left;
+  color: white;
+  margin: 16px;
+}
+
+.boton_LimpiarDiagrama{
+  float: left;
+}
+
+.boton_nuevoDiagrama_button{
+  width: auto;
+  padding: 10px;
+  margin-left: 10px;
+  height: 40px;
+}
+
+.botones_navbar{
+  width: 400px;
+  height: 40px;
+  float: right;
+  margin-top: 5px;
+
+}
+
+.botones_navbar_button{
+  width: auto;
+  padding: 10px;
+  margin-left: 10px;
+  height: 40px;
+}
+
+/***************************************************/
+.sidebar_diagrama {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: #FFCC99; /* Fondo naranja claro */
+  width: 300px; /* Ocupa 300px del lado izquierdo */
+}
+
+
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+.modal {
+  position: fixed;
+  top: 70%;
+  left: 16%;
+  transform: translate(-50%, -50%);
+  background: white;
+  padding: 20px;
+  border: 1px solid #ccc;
+  z-index: 1000; /* Asegúrate de que el modal esté sobre otros elementos */
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2); /* Opcional: Agrega sombra para destacar el modal */
+  width: 300px; /* Opcional: Ajusta el tamaño del modal según sea necesario */
+  max-height: 80%; /* Opcional: Limita la altura del modal */
+  overflow-y: auto; /* Opcional: Agrega scroll si el contenido es demasiado largo */
+}
+
+
+
+/****************************************************************/
+/*diagrama gojs*/
+.diagram-component, .representacion-json {
+  width: 100%;
+  margin: auto; /* Centra el elemento horizontalmente */
+  display: block; /* Asegura que el elemento se comporte como un bloque, necesario para margin auto */
+  
+}
+
+.diagram-component {
+  height: 590px;
+  width: 1100px;
+  border: solid 1px gray;
+  background-color: rgb(231, 231, 231);
+  border: solid 1px gray;
+  position: relative;    /* Ajusta su posición en relación al flujo normal del documento */
+  margin: 0 auto;        /* Centra el diagrama horizontalmente */
+  top: 56px;             /* Deja suficiente espacio para el navbar */
+  left: 250px;           /* Ajusta este valor según el ancho de tu sidebar */
+  z-index: 1;            /* Asegura que el diagrama quede debajo del navbar */
+}
+
+
+.representacion-json {
+  height: 200px;
+  border: solid 3px black;
+  background-color: white;
+}
+/* Navbar */
+.navbar {
+  background-color: #7EC8E3;
+  padding: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.navbar-btn {
+  margin-right: 5px;
+}
+
+.navbar-left,
+.navbar-center,
+.navbar-right {
+  display: flex;
+  align-items: center;
+}
+
+.navbar-center {
+  justify-content: center;
+  flex-grow: 1;
+}
+
+.left-containeruno {
+  margin-top: 20px;
+  width: 100%; /* Ocupa todo el ancho del contenedor padre */
+}
+.main-container {
+  display: flex;
+}
+
+.diagram-componentu {
+  flex: 1;
+}
+/* Estilo Botones */
+.btn {
+  padding: 10px 10px;
+  margin: 10px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  /* Animacion */
+  transition-duration: 0.3s;
+  cursor: pointer;
+
+}
+
+.btn-cel {
+  padding: 10px 10px;
+  margin: 10px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  /* Animacion */
+  transition-duration: 0.3s;
+  cursor: pointer;
+
+}
+
+.btn:hover {
+  background-color: rgb(197, 197, 197); 
+  color: black;
+}
+
+.btn-cel:hover {
+  background-color: rgb(198, 241, 241); 
+  color: black;
+}
+
+.subtitulos {
+  font-size: 20px;
+  font-weight: bold;
+}
+
