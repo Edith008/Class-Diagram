@@ -104,16 +104,18 @@
   background-color: #f8f9fa; 
   }
 
-.sidebar_diagram {
-  position: fixed;
-  top: 56px; 
-  left: 0;
-  width: 250px; 
-  height: calc(100% - 70px);
-  height: 100%;
-  overflow: auto;
-  padding: 10px;
-  background-color: #f8f9fa; 
+  .sidebar_diagram {
+    display: flex;
+    flex-direction: column; /* Organiza los elementos en columna */
+    position: fixed; 
+    top: 56px; 
+    left: 0; 
+    width: 250px; 
+    height: calc(100% - 56px); 
+    overflow-y: auto; /* Solo desplazar en la dirección vertical */
+    padding: 10px; 
+    background-color: #f8f9fa; 
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1); 
 }
 
 .main-content { /* para las tablas del home */
@@ -188,13 +190,7 @@
 }
 
 /***************************************************/
-.sidebar_diagrama {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  background-color: #FFCC99; /* Fondo naranja claro */
-  width: 300px; /* Ocupa 300px del lado izquierdo */
-}
+
 
 
 
@@ -229,16 +225,20 @@ html, body {
 }
 
 .diagram-component {
-  height: 590px;
-  width: 1100px;
+  height: 530px;
+  width: 1024px;
+
   border: solid 1px gray;
   background-color: rgb(231, 231, 231);
   border: solid 1px gray;
-  position: relative;    /* Ajusta su posición en relación al flujo normal del documento */
+  position: relative;    /* Ajusta su posición en relación al flujo normal del documento  height: 590px;
+  width: 1100px; */
   margin: 0 auto;        /* Centra el diagrama horizontalmente */
   top: 56px;             /* Deja suficiente espacio para el navbar */
   left: 250px;           /* Ajusta este valor según el ancho de tu sidebar */
   z-index: 1;            /* Asegura que el diagrama quede debajo del navbar */
+      /* Evita que el diagrama se desborde */
+  overflow: hidden;
 }
 
 

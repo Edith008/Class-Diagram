@@ -14,118 +14,107 @@ const generateKey = () => (Math.random() * 1e17).toString(36);
 
 const ClassDiagram = () => {
     const diagramRef = useRef(null);
+    const documentIdRef = useRef(null);  
     const [myDiagram, setMyDiagram] = useState(null);
     const [modelJson, setModelJson] = useState(JSON.stringify({ class: "go.GraphLinksModel", nodeDataArray: [], linkDataArray: [] }, null, 2));
-    const [isAddClassModalVisible, setIsAddClassModalVisible] = useState(false);
-    const [newClass, setNewClass] = useState({ key: '', text: '', properties: [], methods: [] });
     const { isInviteModalOpen, setInviteModalOpen, emailData, setEmailData, handleInputChange, handleSendEmail } = Invitacion();
-    const { diagramaId,documentId } = useParams();
-    //console.log('documentId :', documentId);
+    const { diagramaId} = useParams();
     const location = useLocation();
     const params = new URLSearchParams(location.search);
     const diagramaNombre = params.get('nombre');
     const { logout } = useAuth();
 
-
     const [diagram, setDiagram] = useState(null); // El diagrama de GoJS
-    const [propertyDefault, setPropertyDefault] = useState('');
 
     const [propertyName, setPropertyName] = useState('');
     const [propertyType, setPropertyType] = useState('');
     const [propertyVisibility, setPropertyVisibility] = useState('public'); // Puede ser public, private, protected
-
-    const [selectedNode, setSelectedNode] = useState(null); // Nodo seleccionado
-    const [attributeName, setAttributeName] = useState(''); // Nombre del atributo
-    const [attributeType, setAttributeType] = useState('int'); // Tipo del atributo
     const [isModalOpen, setIsModalOpen] = useState(false); // Control del modal
 
+
+    const [isDocumentIdLoaded, setIsDocumentIdLoaded] = useState(false); // Estado para verificar si documentId está cargado
+    // Función que obtiene el documentId y lo guarda en documentIdRef (sin causar re-render)
+    const getDocumentIdByDiagramaIdWithoutRender = async (diagramaId) => {
+        try {
+        const diagramaCollection = collection(db, 'diagramas');
+        const q = query(diagramaCollection, where('diagramaId', '==', diagramaId));
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+            const doc = querySnapshot.docs[0];
+            documentIdRef.current = doc.id; 
+            console.log("DocumentId obtenido desde consulta (useRef):", doc.id);
+        } else {
+            console.error("No se encontró ningún documento con el diagramaId proporcionado.");
+        }
+        } catch (error) {
+        console.error("Error obteniendo documentId:", error.message || error);
+        }
+    };
+
+
+    //------------------------------------------------------------------------------------------
+    //------------------------------------------------------------------------------------------
     // Initialize GoJS Diagram
     useEffect(() => {
+        if (!diagramRef.current) return;  
+    
+        // Verificar si ya se obtuvo el documentId
+        if (!documentIdRef.current && diagramaId && !isDocumentIdLoaded) {
+            getDocumentIdByDiagramaIdWithoutRender(diagramaId)
+                .then(() => {
+                    console.log("DocumentId primera vez:", documentIdRef.current);
+                    setIsDocumentIdLoaded(true);  // Marca como cargado el documentId
+    
+                    // Ahora que tenemos el documentId, inicializamos el diagrama
+                    if (!myDiagram) {
+                        const $ = go.GraphObject.make;
+                        const diagram = $(go.Diagram, {
+                            'undoManager.isEnabled': true,
+                            'clickCreatingTool.archetypeNodeData': { text: 'Node', color: 'white' },
+                            'draggingTool.dragsLink': true,
+                            'dragSelectingTool.isEnabled': true,
+                            "linkingTool.isEnabled": true,
+                            "relinkingTool.isEnabled": true,
+                            "draggingTool.isEnabled": true,
+                            "isReadOnly": false,
+                         //   "initialContentAlignment": go.Spot.Center,
+                           //"initialContentAlignment": go.Spot.TopLeft,
+                         //  "initialScale": 1,
+                           "allowMove": true,
+                           "allowZoom": false,
+                        });
+                        diagram.model = new go.GraphLinksModel([], []);
+                        diagram.div = diagramRef.current;
+                        setMyDiagram(diagram);  // Actualiza el estado solo la primera vez
+                    }
+                })
+                .catch((error) => {
+                    console.error("Error al obtener el documentId:", error);
+                });}
 
-        if (!diagramRef.current) return;
+                if (myDiagram && isDocumentIdLoaded) {
+                    console.log('Inicializando nodos...');
+                    myDiagram.model.startTransaction('Cargando nodos'); // Inicia la transacción
+                    crearNodo(myDiagram);   
+                    ListenersModificar(myDiagram);  
+                    ListenersMovimiento(myDiagram, setModelJson); 
+                    setModelJson(myDiagram.model.toJson());
+                    ListenersEnlaces(myDiagram);
 
-
-        const initDiagram = () => {
-            const $ = go.GraphObject.make;
-            const diagram = $(go.Diagram, {
-              'undoManager.isEnabled': true, // Habilita deshacer/rehacer
-           //   'model': new go.GraphLinksModel([], []),
-              'clickCreatingTool.archetypeNodeData': { text: 'Node', color: 'white' },
-              'draggingTool.dragsLink': true,
-              'dragSelectingTool.isEnabled': true,
-              "linkingTool.isEnabled": true,
-              "relinkingTool.isEnabled": true,
-              "draggingTool.isEnabled": true,
-              "isReadOnly": false,
-              "initialContentAlignment": go.Spot.Center
-        
-            });
-
-            // Aquí defines la plantilla de nodos, donde añadimos el binding para la locación
-            diagram.nodeTemplate =
-            $(go.Node, "Auto",
-                // Binding de la propiedad 'location' con la propiedad 'loc' del modelo JSON
-                new go.Binding("location", "loc", go.Point.parse).makeTwoWay(go.Point.stringify),
-                $(go.Shape, "RoundedRectangle", { strokeWidth: 0, fill: "lightgray" }),
-                $(go.TextBlock, { margin: 8, editable: true },
-                    new go.Binding("text", "name").makeTwoWay()) // Bind para el nombre del nodo
-            );
-
-            // Configura el modelo del diagrama
-            diagram.model = new go.GraphLinksModel([],[] );
-            console.log('Diagrama inicializado:', diagram);
-        
-            return diagram;
-        };
-     
-
-        console.log('diagramRef.current:', diagramRef.current);
-        console.log('myDiagram:', myDiagram);
-        if (!diagramRef.current) return; 
-      
-        // Inicializa el diagrama solo si no está ya creado
-        if (!myDiagram) {
-          const diagram = initDiagram();  // Usa tu método para inicializar el diagrama
-          setMyDiagram(diagram);  // Almacena el diagrama en el estado
-          diagram.div = diagramRef.current; // Conecta el diagrama a su contenedor en el DOM
-        }
-
-        // Asegúrate de que 'myDiagram' esté inicializado antes de usarlo
-        if (myDiagram) {
-          console.log('Inicializando nodos...');
-          getDocumentIdByDiagramaId(diagramaId)  
-          crearNodo(myDiagram);   
-          ListenersModificar(myDiagram);  
-          ListenersMovimiento(myDiagram, setModelJson); //bien 
-          setModelJson(myDiagram.model.toJson());
-          ListenersEnlaces(myDiagram);
-      
-
-          loadNodes(diagramaId, myDiagram);
-          addNodeToFirestore();
-          //updateFirestoreNode(nodeId, newData)
-
-
-          if (documentId) {
-            updateModelData(documentId);  
-            //descargarArchivoSDS() 
-          }
-          loadDiagram(diagramaId); // Cargar el diagrama desde la base de datos
-
-
-
-          // Guardar el diagrama en Firestore cuando se cambien los datos
-          const handleSave = () => {
-            saveDiagram(diagramaId, myDiagram.model.toJson());
-          };
-        }
-      
+                    if (documentIdRef.current) {
+                        console.log("El documentId es esto es para cargar :", documentIdRef.current);
+                        loadModelData(documentIdRef.current); // Cargar datos del modelo usando el documentId
+                    }
+                    myDiagram.model.commitTransaction('Cargando nodos'); // Finaliza la transacción
+                }
         return () => {
-          if (myDiagram) {
-            myDiagram.div = null;   // Desconecta el diagrama de su contenedor en el DOM
-          }
+            if (myDiagram) {
+                myDiagram.div = null;   // Desconecta el diagrama de su contenedor en el DOM
+            }
         };
-    }, [diagramRef, myDiagram, diagramaId,documentId]); 
+    }, [diagramRef, myDiagram, diagramaId, isDocumentIdLoaded]);
+    
 
     //--------------------------------------------------------------------------------------------------------------
     //--------------------------------------------------------------------------------------------------------------
@@ -257,67 +246,7 @@ const ClassDiagram = () => {
           );
     } 
 
-    ///////////////////////////////////////////////////////////////////////////////////
-
-    const handleAddProperty = (e, button) => {
-            // Comprobamos si 'button' y 'button.part.adornedPart' están definidos
-            if (!button || !button.part || !button.part.adornedPart) {
-              console.error("No se pudo encontrar el nodo adornedPart.");
-              return;
-            }
-          
-            const node = button.part.adornedPart;  // El nodo asociado
-            const diagram = node.diagram;
-          
-            if (!diagram) {
-              console.error("El diagrama no está disponible.");
-              return;
-            }
-          
-            diagram.startTransaction('add property');
-          
-            const newProperty = {
-              name: 'newProperty',  // Nombre por defecto
-              type: 'String',       // Tipo por defecto
-              visibility: 'public'  // Visibilidad por defecto
-            };
-          
-            // Añadir la nueva propiedad a la lista de propiedades del nodo
-            const nodeData = node.data;
-            if (!nodeData.properties) {
-              nodeData.properties = [];
-            }
-            nodeData.properties.push(newProperty);
-          
-            // Actualizar el modelo
-            diagram.model.updateTargetBindings(nodeData);
-            diagram.commitTransaction('add property');
-    }; 
-
-
-    const handleSubmitProperty = () => {
-        const selectedNodeData = selectedNode.data;
-        
-        const newProperty = {
-            name: propertyName,
-            type: propertyType,
-            visibility: propertyVisibility
-        };
-        
-        myDiagram.startTransaction('add property');
-        selectedNodeData.properties.push(newProperty);
-        myDiagram.model.updateTargetBindings(selectedNodeData);
-        myDiagram.commitTransaction('add property');
-        
-        // Limpiar los campos del modal
-        setPropertyName('');
-        setPropertyType('');
-        setPropertyVisibility('public');
-    };
-            
-    
-    //////////////////////////////////////////////////////////////////////////////////       
-
+    //para el boton "Anadir clase"
     const handleAddClass = () => {
         if (!myDiagram || !(myDiagram instanceof go.Diagram)) {
             console.error("myDiagram is not initialized or is not an instance of go.Diagram");
@@ -326,7 +255,7 @@ const ClassDiagram = () => {
 
         const newNodeData = {
             key: generateKey(),  
-            loc: '0 0',
+            loc: '-50 -50',
             properties: ["attribute1", "attribute2"],
             methods: ["method1(): returnType"]
         };
@@ -342,67 +271,14 @@ const ClassDiagram = () => {
         myDiagram.model.addNodeData(newNodeData);
         myDiagram.commitTransaction("add new class");
 
-        addNodeToFirestore(newNodeData, diagramaId)
-            .then(() => {
-                console.log("New class node created and added to Firestore");
-            })
-            .catch((error) => {
-                console.error("Error adding new class to Firestore:", error);
-            });
-
         const updatedModelJson = JSON.stringify(myDiagram.model.toJson(), null, 2);
         setModelJson(updatedModelJson);
     } ;
-    
-    const addNodeToFirestore = async (node, diagramaId) => {
-        /*try {
-            console.log('Nodo recibido:', node);  
-            console.log('diagramaId recibido:', diagramaId);  
-    
-            if (!node || !node.key) {
-                console.error('Node is undefined or missing key:', node);
-                return;
-            }
-    
-            const nodeWithDiagramaId = {
-                ...node,
-                diagramaId: diagramaId
-            };
-    
-            const docRef = doc(db, 'nodos', node.key);
-            await setDoc(docRef, nodeWithDiagramaId);
-    
-            console.log('Documento añadido con ID:', node.key, 'y diagramaId:', diagramaId);
-        } catch (error) {
-            console.error('Error añadiendo documento:', error);
-        }*/
-    };
-    
-    const loadNodes = async (diagramaId) => {
-       /* try {
-            // Asegúrate de que el diagramaId esté definido
-            if (!diagramaId) {
-                console.error("DiagramaId no está definido.");
-                return;
-            }
-    
-            const nodesCollection = collection(db, 'nodos');
-            const nodesQuery = query(nodesCollection, where('diagramaId', '==', diagramaId));
-    
-            const nodesSnapshot = await getDocs(nodesQuery);
-            const nodes = nodesSnapshot.docs.map(doc => ({ ...doc.data(), key: doc.id }));
-    
-            // Actualiza el modelo del diagrama con los nodos filtrados
-            myDiagram.model.nodeDataArray = nodes;
-            console.log("Nodos del diagrama cargados correctamente:", nodes);
-        } catch (error) {
-            console.error("Error loading nodes:", error);
-        }
-        //quiero las posiciones de los nodos
-        console.log("Nodos del diagrama cargados correctamente:", myDiagram.model.nodeDataArray);
-      */
-    };
 
+    ///////////////////////////////////////////////////////////////////////////////////
+
+    
+    //////////////////////////////////////////////////////////////////////////////////       
 
 
     // Añadir un listener para el evento 'Modified' del diagrama
@@ -419,7 +295,7 @@ const ClassDiagram = () => {
         });   
     }    
 
-        
+    // Anadir listener para los enlaces
     const ListenersEnlaces = (myDiagram) => {
         myDiagram.addDiagramListener('LinkDrawn', async (e) => {
             const link = e.subject;
@@ -478,155 +354,187 @@ const ClassDiagram = () => {
     }
 
 
-    // Función para actualizar el nodo en Firestore
-    async function updateFirestoreNode(nodeId, newData) {
-       /* if (!nodeId || typeof newData !== 'object' || newData === null) {
-            console.error('Datos de actualización no válidos:', newData);
-            return;
-        }
-
-        const nodeRef = doc(db, 'nodos', nodeId); // Referencia al documento en Firestore
-
-        try {
-            const docSnap = await getDoc(nodeRef);
-
-            if (!docSnap.exists()) {
-                console.error('El documento no existe en Firestore:', nodeId);
-                return;
-            }
-
-            await updateDoc(nodeRef, newData);
-            console.log('Nodo actualizado con éxito');
-        } catch (error) {
-            console.error('Error actualizando el nodo:', error);
-        }*/
-    }
 
 
-    // Listener para mover nodos y actualizar Firestore
-    const ListenersMovimiento = (myDiagram) => {
-        myDiagram.addDiagramListener("SelectionMoved", (e) => {
-            console.log("SelectionMoved event fired");
-            
+    // Añadir un listener para el evento 'SelectionMoved' del diagrama
+    const ListenersMovimiento = (myDiagram, setModelJson) => {
+        myDiagram.addDiagramListener('SelectionMoved', async (e) => {
+            console.log("Evento SelectionMoved disparado");
+    
             const movedParts = e.subject;
-        
-            // Asegúrate de que movedParts sea un Set
+    
             if (movedParts instanceof go.Set) {
-                movedParts.each(part => {
+                await Promise.all(movedParts.map(async (part) => {
                     if (part instanceof go.Part) {
-                        console.log("Moved part:", part);
-                        console.log("Node data:", part.data);
-                        
-                        // Obtener la ubicación actual del nodo
+                        console.log("Parte movida:", part);
+    
+                        // Obtiene la nueva ubicación
                         let newLoc = part.position;
-        
-                        // Ajustar la ubicación: -4px en x y +2px en y
-                        //newLoc = new go.Point(newLoc.x + 83, newLoc.y + 40);
-                        newLoc = new go.Point(newLoc.x, newLoc.y)
-        
-                        // Crear el nuevo objeto de datos con la ubicación ajustada
+                        newLoc = go.Point.stringify(newLoc); // Asegúrate de que 'loc' esté correctamente formateado
+    
+                        // Crear el nuevo nodo con la estructura deseada
                         const nodeDataWithNewLoc = {
-                            ...part.data,
-                            loc: go.Point.stringify(newLoc)  // Convertir la ubicación a cadena
+                            key: part.data.key,
+                            name: part.data.name || part.data.text,
+                            loc: newLoc,
+                            attributes: part.data.attributes || [],
+                            methods: part.data.methods || []
                         };
-        
                         console.log("Nodo movido:", JSON.stringify(nodeDataWithNewLoc, null, 2));
-        
-                        // Asegurarse de que DocumentId está disponible
-                        if (DocumentId) {
-                            // Actualiza el nodo en Firestore
-                            updateModelData(DocumentId, nodeDataWithNewLoc);
-                        } else {
-                            console.error("DocumentId no está definido. Verifica que has llamado a getDocumentIdByDiagramaId.");
-                        }
+    
+                        // Actualiza el nodo en el modelo
+                        myDiagram.model.setDataProperty(part.data, 'loc', newLoc);
+                       // myDiagram.model.setDataProperty(part.data, 'name', nodeDataWithNewLoc.name);
+                       // myDiagram.model.setDataProperty(part.data, 'attributes', nodeDataWithNewLoc.attributes);
+                       // myDiagram.model.setDataProperty(part.data, 'methods', nodeDataWithNewLoc.methods);
+    
+                        // Asegúrate de que el modelo está actualizado
+                        const updatedModelJson = myDiagram.model.toJson(); // Obtener la representación actualizada del modelo
+                        console.log("Modelo actualizado:", updatedModelJson); // Depuración
+                        await updateModelData(documentIdRef.current, updatedModelJson); // Actualiza el modelData en Firestore
+    
+                        // Actualiza el estado del modelo JSON en el estado local
+                        setModelJson(updatedModelJson);
                     } else {
-                        console.error("Item in movedParts is not an instance of go.Part.");
+                        console.error("El elemento en movedParts no es una instancia de go.Part.");
                     }
-                });
+                }));
             } else {
-                console.error("e.subject is neither a go.Set nor a go.Part.");
+                console.error("e.subject no es ni un go.Set ni un go.Part.");
             }
         });
     };
-
-    let DocumentId = "";  // Variable global para almacenar el documentId de Firestore
-    // Obtener el documentId de Firestore basado en diagramaId
-    async function getDocumentIdByDiagramaId(diagramaId) {
-        try {
-            const diagramaCollection = collection(db, 'diagramas');
-            const q = query(diagramaCollection, where('diagramaId', '==', diagramaId));
-            const querySnapshot = await getDocs(q);
-
-            if (querySnapshot.empty) {
-                throw new Error('No se encontró ningún documento con el diagramaId proporcionado');
-            }
-
-            const docSnapshot = querySnapshot.docs[0];
-            DocumentId = docSnapshot.id;  
-            console.log('Document ID:', DocumentId);
-
-            return DocumentId;  // Devolver el documentId por si se necesita
-        } catch (error) {
-            console.error('Error al obtener el documentId:', error);
-            throw error;
-        }
-    }
-
-    // Actualizar el modelData de Firestore
-    const updateModelData = async (documentId, nodeDataWithNewLoc) => {
+    
+    
+    // Función para actualizar el modelData completo
+    const updateModelData = async (documentId, updatedModelJson) => {
         try {
             if (!db) throw new Error("Firestore DB no está inicializado.");
             if (!documentId) throw new Error("documentId es indefinido o nulo.");
-
+            if (!updatedModelJson) {throw new Error("updatedModelJson es indefinido.");}
+    
             const docRef = doc(db, "diagramas", documentId);
-
-            // Obtener el modelData actual desde Firestore
-            const docSnapshot = await getDoc(docRef);
-            if (!docSnapshot.exists()) {
-                throw new Error("El documento no existe en Firestore.");
-            }
-
-            const currentData = docSnapshot.data();
-            let currentModelData = JSON.parse(currentData.modelData || '{}');
-
-            // Verificar que nodeDataArray exista en el modelo actual
-            const currentNodeDataArray = currentModelData.nodeDataArray || [];
-
-            // Mostrar el estado actual del nodeDataArray para depuración
-            console.log("currentNodeDataArray desde Firestore:", currentNodeDataArray);
-
-            // Actualizar solo el nodo modificado en el array de nodos
-            const updatedNodeDataArray = currentNodeDataArray.map(node =>
-                node.key === nodeDataWithNewLoc.key ? nodeDataWithNewLoc : node
-            );
-
-            // Verificar si el nodo no está en el array (nuevo nodo)
-            if (!currentNodeDataArray.some(node => node.key === nodeDataWithNewLoc.key)) {
-                updatedNodeDataArray.push(nodeDataWithNewLoc);  // Si no existe, lo añadimos
-            }
-
-            // Crear el nuevo modelData con los datos actualizados
-            const updatedModelData = {
-                "class": "_GraphLinksModel",
-                "nodeDataArray": updatedNodeDataArray,
-                "linkDataArray": currentModelData.linkDataArray || []
-            };
-
-            // Mostrar el estado del nodo que intentamos actualizar
-            console.log("Nodo a actualizar:", JSON.stringify(nodeDataWithNewLoc, null, 2));
-            console.log("ModelData actualizado:", JSON.stringify(updatedModelData, null, 2));
-
+    
             // Actualizar Firestore con el nuevo modelData
             await updateDoc(docRef, {
-                modelData: JSON.stringify(updatedModelData),
-                updatedAt: new Date()  // Actualiza el timestamp de la última modificación
+                modelData: updatedModelJson,
+                updatedAt: new Date() 
             });
-
+    
             console.log("Model data actualizado en Firebase correctamente");
         } catch (error) {
             console.error("Error actualizando modelData:", error.message || error);
         }
     };
+    
+    // Función para cargar los datos del modelo desde Firestore
+    const loadModelData = async (documentId) => {
+        try {
+            const docRef = doc(db, "diagramas", documentId);
+            const docSnap = await getDoc(docRef);
+    
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                console.log("Datos obtenidos de Firestore:", data);
+    
+                // Analizar la cadena JSON en un objeto
+                const modelData = JSON.parse(data.modelData);
+    
+                // Verificar que modelData no esté vacío
+                if (modelData.nodeDataArray && modelData.nodeDataArray.length > 0 || modelData.linkDataArray && modelData.linkDataArray.length > 0) {
+                    if (myDiagram) {
+                        // Actualizar el modelo del diagrama con los datos obtenidos
+                        myDiagram.model = go.Model.fromJson(modelData);
+    
+                        // Reasignar las posiciones manualmente después de establecer el modelo
+                        modelData.nodeDataArray.forEach((node) => {
+                            const part = myDiagram.findPartForData(node);
+                            if (part) {
+                                const newLoc = go.Point.parse(node.loc); // Asegúrate de que loc esté en el formato "x y"
+                                part.position = newLoc; // Reasignar la posición
+                            }
+                        });
+    
+                        // Forzar la actualización del diagrama
+                        myDiagram.updateAllTargetBindings();
+                        myDiagram.requestUpdate();
+    
+                        // Actualiza el estado del modelo JSON en el estado local
+                        setModelJson(modelData);
+                        console.log("Model data cargado correctamente:", modelData);
+                    } else {
+                        console.error("myDiagram no está definido.");
+                    }
+                } else {
+                    console.warn("El campo modelData está vacío o es inválido.");
+                }
+            } else {
+                console.error("No se encontró el documento.");
+            }
+        } catch (error) {
+            console.error("Error cargando modelData:", error.message || error);
+        } finally {
+            // setIsLoading(false); // Finalizar el estado de carga si estás usando uno
+        }
+    };
+    
+    
+    
+   /* const loadModelData = async (documentId) => {
+        try {
+            const docRef = doc(db, "diagramas", documentId);
+            const docSnap = await getDoc(docRef);
+    
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                console.log("Datos obtenidos de Firestore:", data);
+    
+                // Analizar la cadena JSON en un objeto
+                const modelData = JSON.parse(data.modelData);
+    
+                // Verificar que modelData no esté vacío
+                if (modelData.nodeDataArray && modelData.nodeDataArray.length > 0 || modelData.linkDataArray && modelData.linkDataArray.length > 0) {
+                    if (myDiagram) {
+                        // Actualizar el modelo del diagrama con los datos obtenidos
+                        myDiagram.model = go.Model.fromJson(modelData);
+    
+                        // Asignar las posiciones manualmente
+                        modelData.nodeDataArray.forEach((node) => {
+                            const part = myDiagram.findPartForData(node);
+                            if (part) {
+                                const newLoc = go.Point.parse(node.loc); // Asegúrate de que loc esté en el formato "x y"
+                                part.position = newLoc; // Reasignar la posición
+                            }
+                        });
+    
+                        // Forzar la actualización del diagrama
+                        myDiagram.updateAllTargetBindings();
+                        myDiagram.requestUpdate();
+    
+                        // Actualiza el estado del modelo JSON en el estado local
+                        setModelJson(modelData);
+                        console.log("Model data cargado correctamente:", modelData);
+                    } else {
+                        console.error("myDiagram no está definido.");
+                    }
+                } else {
+                    console.warn("El campo modelData está vacío o es inválido.");
+                }
+            } else {
+                console.error("No se encontró el documento.");
+            }
+        } catch (error) {
+            console.error("Error cargando modelData:", error.message || error);
+        } finally {
+            // setIsLoading(false); // Finalizar el estado de carga si estás usando uno
+        }
+    };*/
+
+   
+    
+    
+
+
 
 
   
@@ -647,18 +555,6 @@ const ClassDiagram = () => {
         }
     }
 
-    //kdshfkjdskfjdsf
-    const saveDiagram = async (diagramaId, modelJson) => {
-        try {
-            const docRef = doc(db, 'diagramas', diagramaId);
-            await updateDoc(docRef, {
-                modelData: modelJson
-            });
-            console.log('Diagrama guardado con éxito');
-        } catch (error) {
-            console.error('Error al guardar el diagrama:', error);
-        }
-    };
 
     function loadDiagram(diagramaId) {
         const diagramRef = doc(db, 'diagramas', diagramaId);
@@ -916,10 +812,6 @@ const ClassDiagram = () => {
                         <p>Id: {diagramaId}</p><br />
                     </div>
 
-
- 
-
-
                     <button type="submit" onClick={() => setInviteModalOpen(true)}><strong>INVITAR COLABORADOR</strong></button><br />
                     {isInviteModalOpen && (
                         <div className="modal">
@@ -978,7 +870,7 @@ const ClassDiagram = () => {
                         <Button className="btn" onClick={handleAddLink} style={{ width: '150px', margin: '5px' }}>Añadir Asociación</Button>
                     
 
-                    {/*     <Button onClick={() => saveDiagram(diagramaId, myDiagram.model.toJson())}>Guardar Diagramaaa</Button>*/}
+                    {/* <Button onClick={() => saveDiagram(diagramaId, myDiagram.model.toJson())}>Guardar Diagramaaa</Button>*/}
                     </div>
 
 
@@ -1002,11 +894,11 @@ const ClassDiagram = () => {
                 />
 
                 <div>
-                {/* Contenedor donde se renderiza el diagrama */}
-                <div className="diagram-component" ref={diagramRef}></div>
+                    {/* Contenedor donde se renderiza el diagrama */}
+                    <div className="diagram-component" ref={diagramRef}></div>
                 </div>
               
-               </div>
+            </div>
         </div>
     );
 }
