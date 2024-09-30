@@ -7,7 +7,7 @@ import {Home}  from './components/Home.jsx';
 //import {Diagrama} from './components/diagramaDeSecuencia/Diagrama.jsx';
 import  Principal  from './components/principal.jsx';
 //import Diagram from './components/diagramaDeSecuencia/Diagram.jsx';
-import ClassDiagram from './components/diagramaDeSecuencia/ClassDiagram.jsx';
+import ClassDiagram from './components/diagrama/ClassDiagram.jsx';
 
 export default function App() {
   return (

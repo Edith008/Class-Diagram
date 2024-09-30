@@ -4,13 +4,16 @@ import * as go from 'gojs';
 import { Button } from "@/components/ui/button";
 import { Invitacion } from '../invitacion.jsx';
 import { useParams, useLocation } from 'react-router-dom';
-import { useAuth } from '../../context/authContext';
+import { useAuth } from '../../context/authContext.jsx';
 import { doc, onSnapshot, setDoc, collection, addDoc, updateDoc, getDoc, getDocs,query,where } from "firebase/firestore";
 import { db } from '../../firebase.jsx';
 
 
 //let myDiagram;
 const generateKey = () => (Math.random() * 1e17).toString(36);
+
+let currentKey = 0; // Inicializa el contador
+const generateKeyEnlace = () => {currentKey += 1; return currentKey.toString(); };
 
 const ClassDiagram = () => {
     const diagramRef = useRef(null);
@@ -33,6 +36,7 @@ const ClassDiagram = () => {
 
 
     const [isDocumentIdLoaded, setIsDocumentIdLoaded] = useState(false); // Estado para verificar si documentId está cargado
+
     // Función que obtiene el documentId y lo guarda en documentIdRef (sin causar re-render)
     const getDocumentIdByDiagramaIdWithoutRender = async (diagramaId) => {
         try {
@@ -55,6 +59,7 @@ const ClassDiagram = () => {
 
     //------------------------------------------------------------------------------------------
     //------------------------------------------------------------------------------------------
+    
     // Initialize GoJS Diagram
     useEffect(() => {
         if (!diagramRef.current) return;  
@@ -66,7 +71,6 @@ const ClassDiagram = () => {
                     console.log("DocumentId primera vez:", documentIdRef.current);
                     setIsDocumentIdLoaded(true);  // Marca como cargado el documentId
     
-                    // Ahora que tenemos el documentId, inicializamos el diagrama
                     if (!myDiagram) {
                         const $ = go.GraphObject.make;
                         const diagram = $(go.Diagram, {
@@ -96,7 +100,7 @@ const ClassDiagram = () => {
                 if (myDiagram && isDocumentIdLoaded) {
                     console.log('Inicializando nodos...');
                     myDiagram.model.startTransaction('Cargando nodos'); // Inicia la transacción
-                    crearNodo(myDiagram);   
+                    crearNodo(myDiagram);  
                     ListenersModificar(myDiagram);  
                     ListenersMovimiento(myDiagram, setModelJson); 
                     setModelJson(myDiagram.model.toJson());
@@ -108,7 +112,8 @@ const ClassDiagram = () => {
                     }
                     myDiagram.model.commitTransaction('Cargando nodos'); // Finaliza la transacción
                 }
-        return () => {
+
+            return () => {
             if (myDiagram) {
                 myDiagram.div = null;   // Desconecta el diagrama de su contenedor en el DOM
             }
@@ -138,7 +143,7 @@ const ClassDiagram = () => {
           // property name, underlined if scope=="class" to indicate static property
           new go.TextBlock({ isMultiline: false, editable: true })
             .bindTwoWay('text', 'name'),
-            //.bind('isUnderline', 'scope', s => s[0] === 'c'),
+           // .bind('isUnderline', 'scope', s => s[0] === 'c'),
           // property type, if known
           new go.TextBlock('')
             .bind('text', 'type', t => t ? ': ' : ''),
@@ -150,103 +155,197 @@ const ClassDiagram = () => {
         );
 
     // Define the method template
-    var methodTemplate = new go.Panel('Horizontal')
-        .add(
-          // method visibility/access
-          new go.TextBlock({ isMultiline: false, editable: false, width: 12 })
-            .bind('text', 'visibility', convertVisibility),
-          // method name, underlined if scope=="class" to indicate static method
-          new go.TextBlock({ isMultiline: false, editable: true })
-            .bindTwoWay('text', 'name')
-            .bind('isUnderline', 'scope', s => s[0] === 'c'),
-          // method parameters
-          new go.TextBlock('()')
-            // this does not permit adding/editing/removing of parameters via inplace edits
-            .bind('text', 'parameters', parr => {
-              var s = '(';
-              for (var i = 0; i < parr.length; i++) {
-                var param = parr[i];
-                if (i > 0) s += ', ';
-                s += param.name + ': ' + param.type;
-              }
-              return s + ')';
+    const methodTemplate = new go.Panel('Horizontal')
+    .add(
+        new go.TextBlock({ isMultiline: false, editable: false, width: 12 })
+            .bind('text', 'visibility', convertVisibility), // Simboliza la visibilidad
+        new go.TextBlock({ isMultiline: false, editable: true })
+            .bindTwoWay('text', 'name')                     // Nombre del método
+            .bind('isUnderline', 'scope', s => s[0] === 'c'), // Subrayar si es un método estático
+        new go.TextBlock('')                            // Parámetros del método
+            .bind('text', 'parameters', function(parr) {
+                var s = '(';
+                for (var i = 0; i < parr.length; i++) {
+                    var param = parr[i];
+                    if (i > 0) s += ', ';
+                    s += param.name + ': ' + param.type;
+                }
+                return s + ')';
             }),
-          // method return type, if any
-          new go.TextBlock('')
+        new go.TextBlock('')                               // Tipo de retorno
             .bind('text', 'type', t => t ? ': ' : ''),
-          new go.TextBlock({ isMultiline: false, editable: true })
+        new go.TextBlock({ isMultiline: false, editable: true })
             .bindTwoWay('text', 'type')
-        );
+    );
 
     // Define the node template clase   
     const crearNodo = (myDiagram) => {
         myDiagram.nodeTemplate =
             new go.Node('Auto', {
-            locationSpot: go.Spot.Center,
-            fromSpot: go.Spot.AllSides,
-            toSpot: go.Spot.AllSides,
-            selectionAdorned: true,
+                locationSpot: go.Spot.Center,
+                fromSpot: go.Spot.AllSides,
+                toSpot: go.Spot.AllSides,
+                selectionAdorned: true,
             })
-          .add(
-            new go.Shape({ fill: 'lightyellow' }),
-            new go.Panel('Table', { defaultRowSeparatorStroke: 'black' })
-              .add(
-                // header
-                new go.TextBlock('   clase   ',{
-                  row: 0, columnSpan: 2, margin: 3, alignment: go.Spot.Center,
-                  font: 'bold 12pt sans-serif',
-                  isMultiline: false, editable: true
-                })
-                  .bindTwoWay('text', 'name'),
-                // properties
-                new go.TextBlock('Propiedades', { row: 1, font: 'italic 10pt sans-serif' })
-                  .bindObject('visible', 'visible', v => !v, undefined, 'PROPERTIES'),
-                    
-                new go.Panel('Vertical', {
-                  name: 'PROPERTIES',
-                  row: 1,
-                  margin: 3,
-                  stretch: go.Stretch.Horizontal,
-                  defaultAlignment: go.Spot.Left,
-                  background: 'lightyellow',
-                  itemTemplate: propertyTemplate, 
-                })
-                  .bind('itemArray', 'properties'),
-                
-                go.GraphObject.build("PanelExpanderButton", {
-                  row: 1,
-                  column: 1,
-                  alignment: go.Spot.TopRight,
-                  visible: false,
-                 // click: (e, button) => handleAddProperty(e, button) 
-                }, "PROPERTIES")
-                .bind('visible', 'properties', arr => arr.length > 0),
-                
-                // methods
-                new go.TextBlock('Metodos', { row: 2, font: 'italic 10pt sans-serif' })
-                  .bindObject('visible', 'visible', v => !v, undefined, 'METHODS'),
-                new go.Panel('Vertical', {
-                  name: 'METHODS',
-                  row: 2,
-                  margin: 3,
-                  stretch: go.Stretch.Horizontal,
-                  defaultAlignment: go.Spot.Left,
-                  background: 'lightyellow',
-                  itemTemplate: methodTemplate
-                })
-                  .bind('itemArray', 'methods'),
-                go.GraphObject.build("PanelExpanderButton", {
-                  row: 2,
-                  column: 1,
-                  alignment: go.Spot.TopRight,
-                  visible: false
-                }, "METHODS")
-                  .bind('visible', 'methods', arr => arr.length > 0)
-              )
-          );
-    } 
+            .add(
+                new go.Shape({ fill: 'lightyellow' }),
+                new go.Panel('Table', { defaultRowSeparatorStroke: 'black' })
+                    .add(
+                        // Header
+                        new go.TextBlock('   clase   ', {
+                            row: 0, columnSpan: 2, margin: 3, alignment: go.Spot.Center,
+                            font: 'bold 12pt sans-serif',
+                            isMultiline: false, editable: true
+                        })
+                        .bindTwoWay('text', 'name'),
 
-    //para el boton "Anadir clase"
+                        // Properties header
+                        new go.TextBlock('Atributos', { row: 1, alignment: go.Spot.Center, columnSpan: 2, font: 'italic 10pt sans-serif' })
+                            .bindObject('visible', 'visible', v => !v, undefined, 'PROPERTIES'),
+
+                        // Properties panel
+                        new go.Panel('Vertical', {
+                            name: 'PROPERTIES',
+                            row: 1,
+                            margin: 3,
+                            stretch: go.Stretch.Horizontal,
+                            defaultAlignment: go.Spot.Left,
+                            background: 'lightyellow',
+                            itemTemplate: propertyTemplate,
+                        })
+                        .bind('itemArray', 'properties'),
+
+                        // agregar boton atributos
+                        go.GraphObject.make("Button",
+                            {
+                                row: 1,
+                                column: 0,
+                                alignment: go.Spot.TopLeft,
+                                click: (e, obj) => addPropertyToNode(e, obj)
+                            },
+                            new go.TextBlock("+", { font: "10pt sans-serif" })
+                        ),
+
+                        // Expand button for properties
+                        go.GraphObject.build("PanelExpanderButton", {
+                            row: 1,
+                            column: 1,
+                            alignment: go.Spot.TopRight,
+                            visible: false,
+                        }, "PROPERTIES")
+                        .bind('visible', 'properties', arr => arr.length > 0),
+
+                        // Methods header
+                        new go.TextBlock('Metodos', { row: 2, alignment: go.Spot.Center, columnSpan: 2, font: 'italic 10pt sans-serif' })
+                            .bindObject('visible', 'visible', v => !v, undefined, 'METHODS'),
+
+                        // Methods panel
+                        new go.Panel('Vertical', {
+                            name: 'METHODS',
+                            row: 2,
+                            margin: 3,
+                            stretch: go.Stretch.Horizontal,
+                            defaultAlignment: go.Spot.Left,
+                            background: 'lightyellow',
+                            itemTemplate: methodTemplate
+                        })
+                        .bind('itemArray', 'methods'),
+
+                        // agregar boton metodos
+                        go.GraphObject.make("Button",
+                            {
+                                row: 2,
+                                column: 0,
+                                alignment: go.Spot.TopLeft,
+                                click: (e, obj) => addMethodToNode(e, obj)
+                            },
+                            new go.TextBlock("+", { font: "10pt sans-serif" })  // Cambiado de "-" a "+"
+                        ),
+
+                        // Expand button for methods
+                        go.GraphObject.build("PanelExpanderButton", {
+                            row: 2,
+                            column: 1,
+                            alignment: go.Spot.TopRight,
+                            visible: false
+                        }, "METHODS")
+                        .bind('visible', 'methods', arr => arr.length > 0)
+                    )
+            );
+    };
+        
+    // Boton para agregar atributos
+    function addPropertyToNode(e, obj) {
+        const node = obj.part; // Get the node from the button
+        const properties = node.data.properties || []; // Get existing properties or initialize
+
+        // Collect new property details from user input
+        const propertyName = prompt("Enter property name:");
+        const propertyVisibility = prompt("Enter visibility (public, private, protected, package):");
+        const propertyType = prompt("Enter property type:");
+        const propertyDefault = prompt("Enter default value (optional):");
+
+        // Validate the inputs
+        if (propertyName) {
+            // Add new property to the properties array
+            properties.push({
+                visibility: propertyVisibility,
+                name: propertyName,
+                type: propertyType,
+                default: propertyDefault
+            });
+
+            // Update the node data with the new properties array
+            myDiagram.model.setDataProperty(node.data, 'properties', properties);
+
+            // Trigger a diagram update by modifying the node's data
+            myDiagram.model.updateTargetBindings(node.data);
+        } else {
+            alert("Property name is required!");
+        }
+    }
+
+    // Boton para agregar metodo
+    function addMethodToNode(e, obj) {
+        const node = obj.part; // Obtener el nodo desde el botón
+        const methods = node.data.methods || []; // Obtener métodos existentes o inicializar el arreglo
+    
+        // Solicitar detalles del nuevo método al usuario
+        const methodName = prompt("Enter method name:");
+        const methodVisibility = prompt("Enter visibility (public, private, protected, package):");
+        const methodType = prompt("Enter return type (optional):");
+        const methodParams = prompt("Enter parameters (format: name:type, name:type):");
+    
+        // Validar los inputs del método
+        if (methodName) {
+            // Parsear los parámetros ingresados por el usuario
+            let parameters = [];
+            if (methodParams) {
+                parameters = methodParams.split(',').map(param => {
+                    const [name, type] = param.split(':').map(s => s.trim());
+                    return { name: name.trim(), type: type ? type.trim() : "" }; // Asegurarse de que "type" no sea undefined
+                });
+            }
+    
+            // Agregar el nuevo método al arreglo de métodos con la estructura correcta
+            methods.push({
+                visibility: methodVisibility || 'public',
+                name: methodName,
+                type: methodType || '',
+                parameters: parameters
+            });
+    
+            // Actualizar el nodo con los métodos nuevos
+            myDiagram.model.setDataProperty(node.data, 'methods', methods);
+            
+            // Actualizar las vinculaciones de la interfaz
+            myDiagram.model.updateTargetBindings(node.data);
+        } else {
+            alert("Method name is required!");
+        }
+    }
+    
+    // Boton para el boton "Anadir clase"
     const handleAddClass = () => {
         if (!myDiagram || !(myDiagram instanceof go.Diagram)) {
             console.error("myDiagram is not initialized or is not an instance of go.Diagram");
@@ -257,7 +356,8 @@ const ClassDiagram = () => {
             key: generateKey(),  
             loc: '-50 -50',
             properties: ["attribute1", "attribute2"],
-            methods: ["method1(): returnType"]
+            methods: ["method1(): returnType"],
+            name: "New Class" 
         };
 
         console.log("New node created:", newNodeData); // Verifica el nodo creado
@@ -274,12 +374,50 @@ const ClassDiagram = () => {
         const updatedModelJson = JSON.stringify(myDiagram.model.toJson(), null, 2);
         setModelJson(updatedModelJson);
     } ;
-
+ 
     ///////////////////////////////////////////////////////////////////////////////////
 
+    const handleAddLink = () => {
+        // Verifica que myDiagram esté inicializado
+        if (!myDiagram || !(myDiagram instanceof go.Diagram)) {
+            console.error("myDiagram is not initialized.");
+            return;
+        }
+    
+        // Obtener los nodos seleccionados
+        const selectedNodes = myDiagram.selection.toArray().filter(part => part instanceof go.Node);
+    
+        // Verificar que exactamente dos nodos estén seleccionados
+        if (selectedNodes.length !== 2) {
+            console.warn("Selecciona exactamente dos nodos para crear un enlace.");
+            return;
+        }
+    
+        // Obtener las claves de los nodos seleccionados
+        const fromNode = selectedNodes[0];
+        const toNode = selectedNodes[1];
+    
+        // Crear el nuevo enlace (asociación)
+        const newLinkData = {
+            key: generateKeyEnlace(), // Genera una clave única para el enlace
+            from: fromNode.data.key,  // Clave del nodo origen
+            to: toNode.data.key,      // Clave del nodo destino
+            startLabel: 'start1',     // Etiqueta de inicio (opcional)
+            endLabel: 'end1',         // Etiqueta de fin (opcional)
+            centerLabel: 'center1'    // Etiqueta del centro (opcional)
+        };
+    
+        // Iniciar una transacción para agregar el enlace
+        myDiagram.startTransaction("add new link");
+        myDiagram.model.addLinkData(newLinkData); // Agregar el nuevo enlace al modelo
+        myDiagram.commitTransaction("add new link");
+    
+        console.log("Nuevo enlace agregado:", newLinkData); // Mostrar en consola
+    };
+    
+    
     
     //////////////////////////////////////////////////////////////////////////////////       
-
 
     // Añadir un listener para el evento 'Modified' del diagrama
     const ListenersModificar = (myDiagram) => {
@@ -353,9 +491,6 @@ const ClassDiagram = () => {
         });
     }
 
-
-
-
     // Añadir un listener para el evento 'SelectionMoved' del diagrama
     const ListenersMovimiento = (myDiagram, setModelJson) => {
         myDiagram.addDiagramListener('SelectionMoved', async (e) => {
@@ -406,6 +541,8 @@ const ClassDiagram = () => {
     };
     
     
+    ////////////////////////////////////////////////////////////////////////////////
+
     // Función para actualizar el modelData completo
     const updateModelData = async (documentId, updatedModelJson) => {
         try {
@@ -440,7 +577,6 @@ const ClassDiagram = () => {
                 // Analizar la cadena JSON en un objeto
                 const modelData = JSON.parse(data.modelData);
     
-                // Verificar que modelData no esté vacío
                 if (modelData.nodeDataArray && modelData.nodeDataArray.length > 0 || modelData.linkDataArray && modelData.linkDataArray.length > 0) {
                     if (myDiagram) {
                         // Actualizar el modelo del diagrama con los datos obtenidos
@@ -450,8 +586,8 @@ const ClassDiagram = () => {
                         modelData.nodeDataArray.forEach((node) => {
                             const part = myDiagram.findPartForData(node);
                             if (part) {
-                                const newLoc = go.Point.parse(node.loc); // Asegúrate de que loc esté en el formato "x y"
-                                part.position = newLoc; // Reasignar la posición
+                                const newLoc = go.Point.parse(node.loc); 
+                                part.position = newLoc; 
                             }
                         });
     
@@ -459,7 +595,6 @@ const ClassDiagram = () => {
                         myDiagram.updateAllTargetBindings();
                         myDiagram.requestUpdate();
     
-                        // Actualiza el estado del modelo JSON en el estado local
                         setModelJson(modelData);
                         console.log("Model data cargado correctamente:", modelData);
                     } else {
@@ -478,141 +613,16 @@ const ClassDiagram = () => {
         }
     };
     
-    
-    
-   /* const loadModelData = async (documentId) => {
-        try {
-            const docRef = doc(db, "diagramas", documentId);
-            const docSnap = await getDoc(docRef);
-    
-            if (docSnap.exists()) {
-                const data = docSnap.data();
-                console.log("Datos obtenidos de Firestore:", data);
-    
-                // Analizar la cadena JSON en un objeto
-                const modelData = JSON.parse(data.modelData);
-    
-                // Verificar que modelData no esté vacío
-                if (modelData.nodeDataArray && modelData.nodeDataArray.length > 0 || modelData.linkDataArray && modelData.linkDataArray.length > 0) {
-                    if (myDiagram) {
-                        // Actualizar el modelo del diagrama con los datos obtenidos
-                        myDiagram.model = go.Model.fromJson(modelData);
-    
-                        // Asignar las posiciones manualmente
-                        modelData.nodeDataArray.forEach((node) => {
-                            const part = myDiagram.findPartForData(node);
-                            if (part) {
-                                const newLoc = go.Point.parse(node.loc); // Asegúrate de que loc esté en el formato "x y"
-                                part.position = newLoc; // Reasignar la posición
-                            }
-                        });
-    
-                        // Forzar la actualización del diagrama
-                        myDiagram.updateAllTargetBindings();
-                        myDiagram.requestUpdate();
-    
-                        // Actualiza el estado del modelo JSON en el estado local
-                        setModelJson(modelData);
-                        console.log("Model data cargado correctamente:", modelData);
-                    } else {
-                        console.error("myDiagram no está definido.");
-                    }
-                } else {
-                    console.warn("El campo modelData está vacío o es inválido.");
-                }
-            } else {
-                console.error("No se encontró el documento.");
-            }
-        } catch (error) {
-            console.error("Error cargando modelData:", error.message || error);
-        } finally {
-            // setIsLoading(false); // Finalizar el estado de carga si estás usando uno
-        }
-    };*/
-
-   
-    
-    
-
-
-
-
-  
-  
-    async function save(diagramaId) {
-        if (myDiagram.model && typeof myDiagram.model.toJson === 'function') {
-            const modelData = myDiagram.model.toJson();
-            const diagramRef = doc(db, 'diagramas', diagramaId);
-            try {
-                await setDoc(diagramRef, { modelData });
-                console.log('Datos del diagrama guardados en Firestore');
-            } catch (error) {
-                console.error('Error al guardar datos del diagrama:', error);
-            }
-            myDiagram.isModified = false;
-        } else {
-            console.error('model.toJson is not a function');
-        }
+    ///////////////////////////////////////////////////////////////////////////////////
+          
+    function nuevoDiagrama() {
+        myDiagram.model = new go.GraphLinksModel();
     }
 
-
-    function loadDiagram(diagramaId) {
-        const diagramRef = doc(db, 'diagramas', diagramaId);
-        return onSnapshot(diagramRef, (doc) => {
-            if (doc.exists()) {
-                const diagramData = doc.data();
-                try {
-                    const model = go.GraphLinksModel.fromJson(diagramData.modelData);
-                    if (!model.linkKeyProperty) {
-                        model.linkKeyProperty = 'key';
-                    }
-                    myDiagram.model = model;
-                } catch (error) {
-                    console.error('Error al cargar datos del diagrama:', error);
-                }
-            } else {
-                myDiagram.model = new go.GraphLinksModel();
-            }
-        });
-    }
-    
-
-    function handleDrop(e) {
-        e.preventDefault();
-        const point = myDiagram.transformViewToDoc(new go.Point(e.clientX, e.clientY));
-        const newNodeData = {
-            key: Math.random().toString(),
-            text: e.dataTransfer.getData("text"),
-            loc: go.Point.stringify(point),
-            attributes: [],
-            methods: ["newMethod(): returnType"]
-        };
-        myDiagram.model.addNodeData(newNodeData);
-
-        addDoc(collection(db, 'nodos'), newNodeData)
-            .then((docRef) => console.log("Nuevo nodo creado con ID:", docRef.id))
-            .catch((error) => console.error("Error creating node:", error));
-    }
-
-    /*function descargarArchivoSDS() {
-        if (typeof myDiagram.model.toJson === 'function') {
-            const text = myDiagram.model.toJson();
-            const blob = new Blob([text], { type: 'text/plain' });
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = 'diagrama.sds';
-            link.click();
-        } else {
-            console.error('model.toJson is not a function');
-        }
-    }*/
-
-    function descargarArchivoSDS() {
+    function descargarArchivoTXT() {
         if (myDiagram && myDiagram.nodes) {
             const nodeDataArray = [];
     
-            // Iterar sobre todos los nodos del diagrama
             myDiagram.nodes.each(node => {
                 if (node instanceof go.Node) {
                     const key = node.data.key || "";
@@ -623,10 +633,9 @@ const ClassDiagram = () => {
                     // Obtener la ubicación actual desde la propiedad position del nodo
                     const loc = go.Point.stringify(node.position) || "0 0";
     
-                    // Crear el objeto del nodo con la loc actualizada
                     nodeDataArray.push({
                         key: key,
-                        loc: loc,              // La ubicación actual del nodo
+                        loc: loc,              
                         properties: properties,
                         methods: methods,
                         name: name
@@ -637,13 +646,12 @@ const ClassDiagram = () => {
             // Estructurar los datos finales en el formato requerido
             const data = {
                 "class": "_GraphLinksModel",
-                "linkKeyProperty": "key",  // Clave de los enlaces
-                "nodeDataArray": nodeDataArray,  // Nodos con sus atributos actualizados
-                "linkDataArray": myDiagram.model.linkDataArray || []  // Enlaces entre nodos
+                "linkKeyProperty": "key",  
+                "nodeDataArray": nodeDataArray,  
+                "linkDataArray": myDiagram.model.linkDataArray || []  
             };
-    
-            // Convertir los datos a formato JSON
-            const text = JSON.stringify(data, null, 2); // Formato legible (indentado)
+
+            const text = JSON.stringify(data, null, 2); // Convertir los datos a formato JSON
     
             // Crear el archivo y descargarlo
             const blob = new Blob([text], { type: 'application/json' });
@@ -652,85 +660,17 @@ const ClassDiagram = () => {
             // Crear un enlace temporal para la descarga
             const link = document.createElement('a');
             link.href = url;
-            link.download = 'diagrama.sds'; // Nombre del archivo
+            link.download = 'diagrama.txt'; 
             link.click();
         } else {
             console.error('El modelo o nodeDataArray no está disponible.');
         }
     } 
 
-    /* falta obtener el documentId            
-    async function descargarArchivoSDS() {
-        console.log("DocumentId:", DocumentId);
-        if (!DocumentId) {
-            console.error("DocumentId no está definido.");
-            return;
-        }
-    
-        try {
-            const docRef = doc(db, "diagramas", DocumentId);
-            const docSnapshot = await getDoc(docRef);
-            if (!docSnapshot.exists()) {
-                throw new Error("El documento no existe en Firestore.");
-            }
-    
-            const currentData = docSnapshot.data();
-            let modelData = JSON.parse(currentData.modelData || '{}');
-    
-            const nodeDataArray = modelData.nodeDataArray.map(node => ({
-                key: node.key || "",
-                loc: node.loc || "0 0",
-                properties: node.properties || [],
-                methods: node.methods || [],
-                name: node.name || "sin_nombre"
-            }));
-    
-            const data = {
-                "class": "_GraphLinksModel",
-                "linkKeyProperty": "key",
-                "nodeDataArray": nodeDataArray,
-                "linkDataArray": modelData.linkDataArray || []
-            };
-    
-            const text = JSON.stringify(data, null, 2);
-            const blob = new Blob([text], { type: 'application/json' });
-            const url = window.URL.createObjectURL(blob);
-    
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = 'diagrama.sds';
-            link.click();
-        } catch (error) {
-            console.error("Error al descargar el archivo:", error);
-        }
-    }*/
-                
-        
-        
-    function nuevoDiagrama() {
-        myDiagram.model = new go.GraphLinksModel();
-    }
-
-    function importarArchivo2() {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = '.sds';
-        input.onchange = (e) => {
-            const file = e.target.files[0];
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const text = e.target.result;
-                myDiagram.model = go.Model.fromJson(text);
-            };
-            reader.readAsText(file);
-        };
-        input.click();
-    }
-
     function importarArchivo() {
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = '.SDS'; // Aceptar archivos .json
+        input.accept = '.txt'; // Aceptar archivos .json
         input.onchange = (e) => {
             const file = e.target.files[0];
             const reader = new FileReader();
@@ -745,8 +685,6 @@ const ClassDiagram = () => {
         };
         input.click();
     }
-    
-    
 
     function descargarSVG() {
         const svg = myDiagram.makeSvg({ scale: 1, background: 'white', documentTitle: 'Diagrama de secuencia' });
@@ -768,26 +706,7 @@ const ClassDiagram = () => {
     }
 
 
-    function handleAddLink() {
-        const newLinkData = {
-            key: generateKey(),
-            from: 'Node1',
-            to: 'Node2',
-            startLabel: 'start1',
-            endLabel: 'end1',
-            centerLabel: 'center1'
-        };
-
-        myDiagram.model.addLinkData(newLinkData);
-
-        addDoc(collection(db, 'links'), newLinkData)
-            .then((docRef) => console.log("New link created with ID:", docRef.id))
-            .catch((error) => console.error("Error adding new link:", error));
-    }
-
-    if (!modelJson) {
-        return <div>Loading...</div>;
-    }
+    if (!modelJson) {return <div>Loading...</div>; }
 
     return (
         <div>
@@ -801,7 +720,7 @@ const ClassDiagram = () => {
                 <div className="botones_navbar">
                     <Button className="botones_navbar_button" onClick={importarArchivo}>Importar</Button>
                     <Button id="SaveButton" className="botones_navbar_button" onClick={() => save(diagramaId)}>Guardar</Button>
-                    <Button className="botones_navbar_button" onClick={descargarArchivoSDS}>Descargar</Button>
+                    <Button className="botones_navbar_button" onClick={descargarArchivoTXT}>Descargar</Button>
                     <Button className="botones_navbar_button" onClick={logout}>Logout</Button>
                 </div>
             </nav>
@@ -823,54 +742,48 @@ const ClassDiagram = () => {
                         </div>
                     )}
                     <hr /><br />
-
-                    
-
                     
                     <Button onClick={() => setIsModalOpen(true)}>Agregar Atributo</Button>
 
-                        {isModalOpen && (
-                        <Modal>
-                            <h2>Agregar Nueva Propiedad</h2>
-                            <label>Nombre:</label>
-                            <input
-                            type="text"
-                            value={propertyName}
-                            onChange={(e) => setPropertyName(e.target.value)}
-                            />
-                            <label>Tipo:</label>
-                            <input
-                            type="text"
-                            value={propertyType}
-                            onChange={(e) => setPropertyType(e.target.value)}
-                            />
-                            <label>Visibilidad:</label>
-                            <select
-                            value={propertyVisibility}
-                            onChange={(e) => setPropertyVisibility(e.target.value)}
-                            >
-                            <option value="public">Public</option>
-                            <option value="private">Private</option>
-                            <option value="protected">Protected</option>
-                            </select>
-                            <Button onClick={handleSubmitProperty}>Guardar Propiedad</Button>
-                        </Modal>
-                        )}
-
-
-
+                    {isModalOpen && (
+                    <Modal>
+                        <h2>Agregar Nueva Propiedad</h2>
+                        <label>Nombre:</label>
+                        <input
+                        type="text"
+                        value={propertyName}
+                        onChange={(e) => setPropertyName(e.target.value)}
+                        />
+                        <label>Tipo:</label>
+                        <input
+                        type="text"
+                        value={propertyType}
+                        onChange={(e) => setPropertyType(e.target.value)}
+                        />
+                        <label>Visibilidad:</label>
+                        <select
+                        value={propertyVisibility}
+                        onChange={(e) => setPropertyVisibility(e.target.value)}
+                        >
+                        <option value="public">Public</option>
+                        <option value="private">Private</option>
+                        <option value="protected">Protected</option>
+                        </select>
+                        <Button onClick={handleSubmitProperty}>Guardar Propiedad</Button>
+                    </Modal>
+                    )}
 
                     <div>
-                    {/*<button type="submit" onClick={() => setModalOpen(true)}><strong>Add atributos</strong></button><br />*/}
-                        <p><strong>HERRAMIENTAS:</strong></p>
-                        <Button className="btn" onClick={() => myDiagram.commandHandler.undo()} style={{ width: '150px', margin: '5px' }}>Deshacer</Button><br />
-                        <Button className="btn" onClick={() => myDiagram.commandHandler.deleteSelection()} style={{ width: '150px', margin: '5px' }}>Eliminar Selección</Button><br />
-                        <Button className="btn" onClick={() => myDiagram.commandHandler.selectAll()} style={{ width: '150px', margin: '5px' }}>Seleccionar Todo</Button><br /><br />
-                        <Button className="btn" onClick={handleAddClass} style={{ width: '150px', margin: '5px' }}>Añadir Clase</Button><br />
-                        <Button className="btn" onClick={handleAddLink} style={{ width: '150px', margin: '5px' }}>Añadir Asociación</Button>
-                    
+                        {/*<button type="submit" onClick={() => setModalOpen(true)}><strong>Add atributos</strong></button><br />*/}
+                            <p><strong>HERRAMIENTAS:</strong></p>
+                            <Button className="btn" onClick={() => myDiagram.commandHandler.undo()} style={{ width: '150px', margin: '5px' }}>Deshacer</Button><br />
+                            <Button className="btn" onClick={() => myDiagram.commandHandler.deleteSelection()} style={{ width: '150px', margin: '5px' }}>Eliminar Selección</Button><br />
+                            <Button className="btn" onClick={() => myDiagram.commandHandler.selectAll()} style={{ width: '150px', margin: '5px' }}>Seleccionar Todo</Button><br /><br />
+                            <Button className="btn" onClick={handleAddClass} style={{ width: '150px', margin: '5px' }}>Añadir Clase</Button><br />
+                            <Button className="btn" onClick={handleAddLink} style={{ width: '150px', margin: '5px' }}>Añadir Asociación</Button>
 
-                    {/* <Button onClick={() => saveDiagram(diagramaId, myDiagram.model.toJson())}>Guardar Diagramaaa</Button>*/}
+                            
+                        {/* <Button onClick={() => saveDiagram(diagramaId, myDiagram.model.toJson())}>Guardar Diagramaaa</Button>*/}
                     </div>
 
 
@@ -880,9 +793,6 @@ const ClassDiagram = () => {
                         <Button className="btn" onClick={descargarPNG} style={{ width: '120px', margin: '5px' }}>Formato PNG</Button>
                     </div>
                 </div>
-
-               
-               
 
 
                 <textarea
