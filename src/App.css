@@ -13,7 +13,7 @@
 }
 
 .pagina_principal {
-  background-image: url('./assets/images/fondo_blanco.png');
+  background-image: url('./assets/images/fondo_blanco_class.png');
   background-size: cover;
   display:flex;
   width: 100%;

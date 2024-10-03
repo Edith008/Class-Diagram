@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useAuth } from "../context/authContext";
 import { useNavigate } from "react-router-dom";
 import { Alert } from "./Alert";
-import logoImage from "../../src/assets/images/logo.png"; 
+import logoImage from "../../src/assets/images/logo_class.png"; 
 import { Link } from 'react-router-dom';
 import "../App.css"; 
 
