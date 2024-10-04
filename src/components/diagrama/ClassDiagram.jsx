@@ -1688,8 +1688,6 @@ const ClassDiagram = () => {
 
 
 
-
-
     /////////////////////////////////////////////////////////////////////////////////////
           
 
@@ -1882,13 +1880,6 @@ const ClassDiagram = () => {
                     break;
                 }
 
-        
-               /* case 'Generalization': {
-                    // Relación de herencia
-                    enlaceXMI = `    <packagedElement xmi:type="uml:Generalization" xmi:id="${link.key}" general="${fromNode.key}" specific="${toNode.key}"/>\n`;
-                    break;
-                }*/
-
                 case 'Generalization': {       fromNode.key
                     // Relación de herencia (Generalization) anidada dentro de la clase "specific" (toNode)
                     enlaceXMI = `    <packagedElement xmi:type="uml:Class" xmi:id="${fromNode.key}" name="${fromNode.key}">\n`;
@@ -1897,7 +1888,6 @@ const ClassDiagram = () => {
                     break;
                 }
                         
-        
                 case 'Realization': {
                     // Relación de realización (una clase realiza una interfaz)
                     enlaceXMI = `    <packagedElement xmi:type="uml:Realization" xmi:id="${link.key}" client="${fromNode.key}" supplier="${toNode.key}"/>\n`;
@@ -2055,7 +2045,7 @@ const ClassDiagram = () => {
                     )}
                     <hr /><br />
                     
-                    <Button onClick={() => setIsModalOpen(true)}>Agregar Atributo</Button>
+                    {/*<Button onClick={() => setIsModalOpen(true)}>Agregar Atributo</Button>*/}
 
                     {isModalOpen && (
                     <Modal>
