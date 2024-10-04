@@ -22,6 +22,8 @@ let generatekeyEnlace2 = () => {
 };
 //console.log(generatekeyEnlace2()); // Salida ejemplo: enlace_20241002T143512123
 
+let links = [];
+
 const ClassDiagram = () => {
     const diagramRef = useRef(null);
     const documentIdRef = useRef(null);  
@@ -48,6 +50,7 @@ const ClassDiagram = () => {
     const [toNode, setToNode] = useState(null); // Estado para el nodo de destino
     //const [linkType, setLinkType] = useState('Association'); // Estado para el tipo de enlace
     const [linkType, setLinkType] = useState(''); 
+    const [selectedNode, setSelectedNode] = useState(null);
 
     // Función que obtiene el documentId y lo guarda en documentIdRef (sin causar re-render)
     const getDocumentIdByDiagramaIdWithoutRender = async (diagramaId) => {
@@ -94,9 +97,6 @@ const ClassDiagram = () => {
                             "relinkingTool.isEnabled": true,
                             "draggingTool.isEnabled": true,
                             "isReadOnly": false,
-                         //  "initialContentAlignment": go.Spot.Center,
-                         //  "initialContentAlignment": go.Spot.TopLeft,
-                         //  "initialScale": 1,
                             "allowMove": true,
                             "allowZoom": false,
                             "clickCreatingTool.isEnabled": false, // Desactiva la herramienta de creación de nodos
@@ -131,8 +131,6 @@ const ClassDiagram = () => {
                     handleTextEdited(myDiagram, documentIdRef.current);
 
                   
-
-
                     if (documentIdRef.current) {
                         console.log("El documentId es esto es para cargar el ModelData:", documentIdRef.current);
                         loadModelData(documentIdRef.current); 
@@ -711,6 +709,7 @@ const ClassDiagram = () => {
             );
     };
 
+
     // Función para agregar propiedad
     function addPropertyToNode(e, obj) {
         const node = obj.part; // Get the node from the button
@@ -1240,8 +1239,6 @@ const ClassDiagram = () => {
     
 
 
-
-
     ////////////////////////////////////////////////////////////////////////////////// 
     
     // Listener para el evento 'SelectionMoved' del diagrama
@@ -1408,6 +1405,7 @@ const ClassDiagram = () => {
 
 
 
+    // Listener para capturar cambios en los enlaces
     const ListenersEnlaces = (myDiagram, setModelJson) => {
         // Listener para enlaces dibujados o actualizados
         myDiagram.addDiagramListener('LinkDrawn', (e) => {
@@ -1463,28 +1461,6 @@ const ClassDiagram = () => {
         });   
     }    
 
-    // Anadir listener para los enlaces
-    const ListenersEnlaces2 = (myDiagram) => {
-        myDiagram.addDiagramListener('LinkDrawn', async (e) => {
-            const link = e.subject;
-            const fromNode = link.fromNode.data.key;
-            const toNode = link.toNode.data.key;
-            console.log(link.data);
-            const startLabel = link.data.startLabel || 'start1';
-            const endLabel = link.data.endLabel || 'end1';
-            const centerLabel = link.data.centerLabel || 'center1';
-    
-            const newLinkData = { from: fromNode, to: toNode, startLabel, endLabel, centerLabel };
-            try {
-                const linkRef = doc(collection(db, 'links'));
-                await setDoc(linkRef, newLinkData);
-                console.log("Nuevo enlace creado:", JSON.stringify(newLinkData, null, 2));
-            } catch (error) {
-                console.error("Error creating link:", error);
-            }
-        });
-    }    
-
     // Listener para la edición de texto
     const ListenersTexto = (myDiagram) => {
         myDiagram.addDiagramListener('TextEdited', async (e) => {
@@ -1532,7 +1508,6 @@ const ClassDiagram = () => {
     };
     
 
-    
     ////////////////////////////////////////////////////////////////////////////////
 
     // Función para actualizar el modelData completo
@@ -1683,9 +1658,75 @@ const ClassDiagram = () => {
    
 
     ///////////////////////////////////////////////////////////////////////////////////
-    
-    
+    // PARA ELIMINAR
 
+    // Función para eliminar un nodo seleccionado
+    const handleDeleteSelectedNode = async () => {
+        // Asegúrate de que el diagrama y la selección estén definidos
+        if (!myDiagram || !(myDiagram instanceof go.Diagram)) {
+            console.error("El diagrama no está definido o no es una instancia de go.Diagram");
+            return;
+        }
+    
+        // Obtiene el nodo seleccionado
+        const selectedPart = myDiagram.selection.first(); // Obtiene el primer nodo seleccionado
+    
+        if (!selectedPart) {
+            console.warn("No hay un nodo seleccionado para eliminar.");
+            return;
+        }
+    
+        const selectedNodeKey = selectedPart.data.key; // Asegúrate de que tu nodo tiene un 'key'
+    
+        // Elimina el nodo del diagrama usando una transacción
+        myDiagram.startTransaction("delete selected node");
+        myDiagram.model.removeNodeData(selectedPart.data); // Elimina el nodo del modelo de datos
+        myDiagram.commitTransaction("delete selected node");
+    
+        // Ahora también elimina el nodo de Firestore
+        try {
+            await deleteNodeFromFirestore(selectedNodeKey); // Función que se encargará de eliminar el nodo de Firestore
+            console.log(`Nodo con clave ${selectedNodeKey} eliminado de Firestore correctamente.`);
+        } catch (error) {
+            console.error("Error eliminando nodo de Firestore:", error.message || error);
+        }
+    
+        // Para actualizar el modelo en Firebase
+        const updatedModelJson = myDiagram.model.toJson();
+        await updateModelData(documentIdRef.current, updatedModelJson); // Asegúrate de que documentIdRef tenga el valor correcto
+    };
+    
+    // Función para eliminar un nodo de Firestore
+    const deleteNodeFromFirestore = async (nodeKey) => {
+        if (!db) throw new Error("Firestore DB no está inicializado.");
+        if (!nodeKey) throw new Error("nodeKey es indefinido o nulo.");
+    
+        // Aquí asumo que tienes una colección de 'diagramas' y que 'documentIdRef' apunta al id del documento que deseas actualizar
+        const docRef = doc(db, "diagramas", documentIdRef.current); // Asegúrate de tener el id correcto aquí
+    
+        // Obtiene el documento primero
+        const docSnap = await getDoc(docRef);
+        if (!docSnap.exists()) {
+            throw new Error("No se encontró el documento en Firestore.");
+        }
+    
+        // Obtén los datos actuales del modelo
+        const data = docSnap.data();
+        const modelData = JSON.parse(data.modelData); // Analiza la cadena JSON en un objeto
+    
+        // Filtra los nodos para eliminar el nodo que has seleccionado
+        modelData.nodeDataArray = modelData.nodeDataArray.filter(node => node.key !== nodeKey);
+        
+        // Elimina los enlaces asociados al nodo seleccionado
+        modelData.linkDataArray = modelData.linkDataArray.filter(link => link.from !== nodeKey && link.to !== nodeKey);
+    
+        // Actualiza el documento en Firestore
+        await updateDoc(docRef, {
+            modelData: JSON.stringify(modelData),
+            updatedAt: new Date()
+        });
+    };
+    
 
 
     /////////////////////////////////////////////////////////////////////////////////////
@@ -2006,8 +2047,220 @@ const ClassDiagram = () => {
     }
 
 
+    const importarArchivoXMI = (event) => {
+        const file = event.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const content = e.target.result;
+            console.log("Contenido del archivo XMI:", content);
+            procesarXMI(content);
+          };
+          reader.readAsText(file); // Leer el archivo como texto
+        }
+    };
+      
+    // Procesar contenido XMI y convertir a nodos
+    const procesarXMI = (content) => {
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(content, "application/xml");
     
+        const nodes = [];
+        const links = [];
+    
+        // Primero, construimos un mapa de todos los tipos primitivos y personalizados
+        const typesMap = new Map();
+    
+        // Obtener todos los tipos de datos (primitivos y personalizados)
+        const primitiveTypes = xmlDoc.getElementsByTagName("primitiveType");
+        const dataTypes = xmlDoc.getElementsByTagName("dataType");
+    
+        // Recorrer los tipos primitivos
+        for (let i = 0; i < primitiveTypes.length; i++) {
+            const typeId = primitiveTypes[i].getAttribute("xmi:id");
+            const typeName = primitiveTypes[i].getAttribute("name");
+            if (typeId && typeName) {
+                typesMap.set(typeId, typeName);
+            }
+        }
+    
+        // Recorrer los tipos de datos (personalizados)
+        for (let i = 0; i < dataTypes.length; i++) {
+            const typeId = dataTypes[i].getAttribute("xmi:id");
+            const typeName = dataTypes[i].getAttribute("name");
+            if (typeId && typeName) {
+                typesMap.set(typeId, typeName);
+            }
+        }
+    
+        console.log("Tipos encontrados en el XMI:", typesMap);  // Para depuración
+    
+        // Obtener clases
+        const classes = xmlDoc.getElementsByTagName("packagedElement");
+        for (let i = 0; i < classes.length; i++) {
+            if (classes[i].getAttribute("xmi:type") === "uml:Class") {
+                const className = classes[i].getAttribute("name");
+                const nodeId = classes[i].getAttribute("xmi:id");
+    
+                // Extraer atributos (propiedades) de la clase
+                const attributes = [];
+                const ownedAttributes = classes[i].getElementsByTagName("ownedAttribute");
+                for (let j = 0; j < ownedAttributes.length; j++) {
+                    const attributeName = ownedAttributes[j].getAttribute("name");
+                
+                    // Obtener el tipo del atributo
+                    let attributeType = "int";  // Valor por defecto si no se encuentra el tipo
+                
+                    // Ver si el tipo está definido mediante un ID de referencia
+                    const typeId = ownedAttributes[j].getAttribute("type");
+                    if (typeId) {
+                        // Buscar el tipo en el mapa de tipos (primitivos o personalizados)
+                        attributeType = typesMap.get(typeId) || "unknown";
+                    } else {
+                        // Si no hay typeId, buscar un href o alguna otra referencia
+                        const href = ownedAttributes[j].getAttribute("href");
+                        if (href) {
+                            attributeType = href.split('#')[1] || "unknown";  // Extraer el nombre del tipo del href
+                        }
+                    }
+                
+                    // Depuración en caso de que el tipo siga siendo desconocido
+                    if (attributeType === "unknown") {
+                        console.log(`Tipo no encontrado para el atributo ${attributeName} en la clase ${className}.`);
+                    }
+                
+                    attributes.push({
+                        name: attributeName || "AtributoSinNombre",
+                        type: attributeType,
+                    });
+                }
+                
+    
+                // Extraer métodos (operaciones) de la clase
+                const methods = [];
+                const ownedOperations = classes[i].getElementsByTagName("ownedOperation");
+                for (let k = 0; k < ownedOperations.length; k++) {
+                    const methodName = ownedOperations[k].getAttribute("name");
+                    methods.push({
+                        name: methodName  || "MetodoSinNombre",
+                    });
+                }
+    
+                // Agregar el nodo con sus atributos y métodos
+                if (nodeId) {
+                    nodes.push({
+                        key: nodeId,
+                        name: className,
+                        color: "lightblue",
+                        properties: attributes.map(attr => ({ name: attr.name, type: attr.type })),
+                        methods: methods.map(met => ({ name: met.name, type: "void" })),
+                    });
+                }
+            }
+        }
+    
+        /*// Obtener asociaciones (igual que antes)
+        const associations = xmlDoc.getElementsByTagName("uml:Association");
+        for (let i = 0; i < associations.length; i++) {
+            const ownedEnds = associations[i].getElementsByTagName("ownedEnd");
+            if (ownedEnds.length >= 2) {
+                const sourceId = ownedEnds[0].getAttribute("xmi:idref");
+                const targetId = ownedEnds[1].getAttribute("xmi:idref");
+    
+                if (sourceId && targetId && nodes.some(node => node.key === sourceId) && nodes.some(node => node.key === targetId)) {
+                    links.push({ from: sourceId, to: targetId, category: 'Association' });
+                }
+            }
+        }
+    
+        // Obtener generalizaciones (igual que antes)
+        const generalizations = xmlDoc.getElementsByTagName("uml:Generalization");
+        for (let i = 0; i < generalizations.length; i++) {
+            const sourceId = generalizations[i].getAttribute("general");
+            const targetId = generalizations[i].getAttribute("xmi:id");
+    
+            if (sourceId && targetId && nodes.some(node => node.key === sourceId)) {
+                links.push({ from: targetId, to: sourceId, category: 'Generalization' });
+            }
+        }*/
 
+        // Obtener asociaciones
+        const associations = xmlDoc.getElementsByTagName("uml:Association");
+        for (let i = 0; i < associations.length; i++) {
+            const ownedEnds = associations[i].getElementsByTagName("ownedEnd");
+            if (ownedEnds.length >= 2) {
+                const sourceId = ownedEnds[0].getAttribute("xmi:idref");
+                const targetId = ownedEnds[1].getAttribute("xmi:idref");
+
+                // Debugging
+                console.log(`Asociación encontrada: sourceId=${sourceId}, targetId=${targetId}`);
+
+                if (sourceId && targetId && nodes.some(node => node.key === sourceId) && nodes.some(node => node.key === targetId)) {
+                    links.push({ from: sourceId, to: targetId, category: 'Association' });
+                } else {
+                    // Agregar más depuración para ver por qué no se agrega
+                    if (!sourceId || !targetId) {
+                        console.log(`Faltan IDs: sourceId=${sourceId}, targetId=${targetId}`);
+                    }
+                    if (!nodes.some(node => node.key === sourceId)) {
+                        console.log(`El nodo de origen no existe: ${sourceId}`);
+                    }
+                    if (!nodes.some(node => node.key === targetId)) {
+                        console.log(`El nodo de destino no existe: ${targetId}`);
+                    }
+                }
+            }
+        }
+
+        // Obtener generalizaciones
+        const generalizations = xmlDoc.getElementsByTagName("uml:Generalization");
+        for (let i = 0; i < generalizations.length; i++) {
+            const sourceId = generalizations[i].getAttribute("general");
+            const targetId = generalizations[i].getAttribute("xmi:id");
+
+            // Debugging
+            console.log(`Generalización encontrada: sourceId=${sourceId}, targetId=${targetId}`);
+
+            if (sourceId && targetId && nodes.some(node => node.key === sourceId)) {
+                links.push({ from: targetId, to: sourceId, category: 'Generalization' });
+            } else {
+                // Agregar más depuración para ver por qué no se agrega
+                if (!sourceId || !targetId) {
+                    console.log(`Faltan IDs: sourceId=${sourceId}, targetId=${targetId}`);
+                }
+                if (!nodes.some(node => node.key === sourceId)) {
+                    console.log(`El nodo de origen no existe: ${sourceId}`);
+                }
+            }
+        }
+
+    
+        // Actualizar el modelo GoJS
+        if (myDiagram) {
+            myDiagram.model.startTransaction("Importar XMI");
+    
+            try {
+                myDiagram.model.clear();
+                myDiagram.model.nodeDataArray = nodes;
+                myDiagram.model.linkDataArray = links;
+    
+                console.log("Nodos:", nodes);
+                console.log("Enlaces procesados:", links);
+            } catch (error) {
+                console.error("Error al actualizar el modelo:", error);
+            } finally {
+                myDiagram.model.commitTransaction("Importar XMI");
+            }
+        }
+    };
+    
+    
+    
+    
+    
+      
+      
+      
     if (!modelJson) {return <div>Loading...</div>; }
 
     return (
@@ -2021,9 +2274,12 @@ const ClassDiagram = () => {
                 </div>
                 <div className="botones_navbar">
                     <Button className="botones_navbar_button" onClick={importarArchivo}>Importar</Button>
+                    {/*<Button className="botones_navbar_button"  onClick={importarArchivoXMI}>ImportarArchivoAE</Button>*/}
+                   
                     {/*<Button id="SaveButton" className="botones_navbar_button" onClick={() => save(diagramaId)}>Guardar</Button> */}
                     <Button className="botones_navbar_button" onClick={descargarArchivoTXT}>Descargar</Button>
                     <Button className="botones_navbar_button" onClick={logout}>Logout</Button>
+                    <input type="file" accept=".xmi" onChange={importarArchivoXMI} style={{ marginTop: "20px" }}/>
                 </div>
             </nav>
 
@@ -2123,9 +2379,8 @@ const ClassDiagram = () => {
                             <option value="Dependency">Dependencia</option>
                         </select>
                         <Button className="btn" onClick={handleAddLink} style={{ width: '150px', margin: '5px' }}  disabled={ !linkType || !fromNode || !toNode}>Añadir Enlace</Button><br />
-                       
+                        <Button className="btn" onClick={handleDeleteSelectedNode} style={{ width: '150px', margin: '5px' }}> Eliminar SelecciónFIRE</Button>
 
-                        {/* <Button onClick={() => saveDiagram(diagramaId, myDiagram.model.toJson())}>Guardar Diagramaaa</Button>*/}
                     </div>
 
 
