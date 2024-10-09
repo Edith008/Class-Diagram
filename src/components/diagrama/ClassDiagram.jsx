@@ -98,14 +98,15 @@ const ClassDiagram = () => {
                             "draggingTool.isEnabled": true,
                             "isReadOnly": false,
                             "allowMove": true,
-                            "allowZoom": false,
+                            "allowZoom": true,
+                            "initialContentAlignment": go.Spot.Left,
                             "clickCreatingTool.isEnabled": false, // Desactiva la herramienta de creación de nodos
                         });
                         diagram.model = new go.GraphLinksModel([], []);
                         diagram.div = diagramRef.current;
  
                         createLinkTemplates(diagram);// Define plantillas de enlace cuando se inicializa el diagrama
-                        crearNodo(diagram);  
+                       // crearNodo(diagram);  
                         setMyDiagram(diagram);  // Actualiza el estado solo la primera vez
                     }
                 })
@@ -122,13 +123,15 @@ const ClassDiagram = () => {
                     crearNodo(myDiagram);  
                     createLinkTemplates(myDiagram)
                     ListenersMovimiento(myDiagram, setModelJson);
-                    //ListenerAddNode();
+                    ListenerNodeCreated(myDiagram, setModelJson, documentIdRef);
+                    ListenerAddAttributesMethods(myDiagram.current, documentIdRef); // Agrega este listener
                     ListenerAddNodeEdit();
                     setModelJson(myDiagram.model.toJson());
 
                     // Llama a las nuevas funciones para manejar la selección de enlaces y edición de texto
                     handleLinkSelection(myDiagram, documentIdRef.current);
                     handleTextEdited(myDiagram, documentIdRef.current);
+                
 
                   
                     if (documentIdRef.current) {
@@ -151,7 +154,7 @@ const ClassDiagram = () => {
         if (myDiagram) {
             //movable: true
             const linkStyle = () => ({routing: go.Link.Normal, curve: go.Link.Bezier, corner: 5, selectable: true, relinkableFrom: true, relinkableTo: true});
-            myDiagram.linkTemplateMap.clear();
+          //  myDiagram.linkTemplateMap.clear();
     
             // Dependiendo del tipo de enlace seleccionado (linkType), se configura el diagrama
             if (linkType === 'Association') {
@@ -648,7 +651,7 @@ const ClassDiagram = () => {
                             background: 'lightyellow',
                             itemTemplate: propertyTemplate,
                         })
-                        .bind('itemArray', 'properties'),
+                        .bindTwoWay('itemArray', 'properties'),
 
                         // agregar boton atributos
                         go.GraphObject.make("Button",
@@ -656,7 +659,7 @@ const ClassDiagram = () => {
                                 row: 1,
                                 column: 0,
                                 alignment: go.Spot.TopLeft,
-                                click: (e, obj) => addPropertyToNode(e, obj)
+                                click: (e, obj) => addPropertyToNode(e, obj,documentIdRef)
                             },
                             new go.TextBlock("+", { font: "10pt sans-serif" })
                         ),
@@ -684,7 +687,7 @@ const ClassDiagram = () => {
                             background: 'lightyellow',
                             itemTemplate: methodTemplate
                         })
-                        .bind('itemArray', 'methods'),
+                        .bindTwoWay('itemArray', 'methods'),
 
                         // agregar boton metodos
                         go.GraphObject.make("Button",
@@ -692,7 +695,7 @@ const ClassDiagram = () => {
                                 row: 2,
                                 column: 0,
                                 alignment: go.Spot.TopLeft,
-                                click: (e, obj) => addMethodToNode(e, obj)
+                                click: (e, obj) => addMethodToNode(e, obj,documentIdRef)
                             },
                             new go.TextBlock("+", { font: "10pt sans-serif" })  // Cambiado de "-" a "+"
                         ),
@@ -711,67 +714,77 @@ const ClassDiagram = () => {
 
 
     // Función para agregar propiedad
-    function addPropertyToNode(e, obj) {
-        const node = obj.part; // Get the node from the button
-    
+    async function addPropertyToNode(e, obj, documentIdRef) {
+        const node = obj.part; // Obtiene el nodo desde el botón
+
         // Asegúrate de que el nodo y sus datos estén definidos
         if (!node || !node.data) {
             console.error("No se puede agregar propiedad: nodo o datos del nodo no definidos");
             return;
         }
-    
-        const properties = node.data.properties || []; // Get existing properties or initialize
-    
-        // Collect new property details from user input
+
+        const properties = node.data.properties || []; // Obtener propiedades existentes o inicializar
+
+        // Recoger detalles de la nueva propiedad de la entrada del usuario
         const propertyName = prompt("Enter property name:");
         const propertyVisibility = prompt("Enter visibility (public, private, protected, package):");
         const propertyType = prompt("Enter property type:");
         const propertyDefault = prompt("Enter default value (optional):");
-    
-        // Validate the inputs
+
+        // Validar las entradas
         if (propertyName) {
             // Asegúrate de que el diagrama esté inicializado antes de comenzar la transacción
             if (!myDiagram) {
                 console.error("El diagrama no está definido");
                 return;
             }
-    
-            myDiagram.startTransaction("Add Property"); //inicia la transacción
-    
-            // Agrega la nueva propiedad
+
+            myDiagram.startTransaction("Add Property"); // Inicia la transacción
+
+            // Agregar la nueva propiedad
             properties.push({
                 visibility: propertyVisibility || "public",  // Valor predeterminado si está vacío
                 name: propertyName,
                 type: propertyType || "String",  // Valor predeterminado si está vacío
                 default: propertyDefault || ""  // Valor predeterminado si está vacío
             });
-    
-            // Update the node data with the new properties array
+
+            // Actualiza los datos del nodo con el nuevo arreglo de propiedades
             myDiagram.model.setDataProperty(node.data, 'properties', properties);
-    
-            // Trigger a diagram update by modifying the node's data
+
+            // Actualiza el nodo y vincula la interfaz
             myDiagram.model.updateTargetBindings(node.data);
-    
-            myDiagram.commitTransaction("Add Property");  //finaliza la transacción
+
+            myDiagram.commitTransaction("Add Property"); // Finaliza la transacción
+
+            // Actualiza la base de datos con el modelo modificado
+            const updatedModelJson = myDiagram.model.toJson(); // Obtiene la representación actualizada del modelo
+            try {
+                await updateModelData(documentIdRef.current, updatedModelJson); // Actualiza Firestore
+                console.log("Modelo actualizado en Firestore tras agregar propiedad.");
+            } catch (error) {
+                console.error("Error al actualizar Firestore tras agregar propiedad:", error);
+            }
         } else {
             alert("Property name is required!");
         }
     }
-        
+
     // Función para agregar método
-    function addMethodToNode(e, obj) {
+    async function addMethodToNode(e, obj, documentIdRef) {
         const node = obj.part; // Obtener el nodo desde el botón
         const methods = node.data.methods || []; // Obtener métodos existentes o inicializar el arreglo
-    
+
         // Solicitar detalles del nuevo método al usuario
         const methodName = prompt("Enter method name:");
         const methodVisibility = prompt("Enter visibility (public, private, protected, package):");
         const methodType = prompt("Enter return type (optional):");
         const methodParams = prompt("Enter parameters (format: name:type, name:type):");
-    
+
         // Validar los inputs del método
         if (methodName) {
             myDiagram.startTransaction("Add Method"); // Iniciar la transacción
+            
             // Parsear los parámetros ingresados por el usuario
             let parameters = [];
             if (methodParams) {
@@ -780,7 +793,7 @@ const ClassDiagram = () => {
                     return { name: name.trim(), type: type ? type.trim() : "" }; // Asegurarse de que "type" no sea undefined
                 });
             }
-    
+
             // Agregar el nuevo método al arreglo de métodos con la estructura correcta
             methods.push({
                 visibility: methodVisibility || 'public',
@@ -788,7 +801,7 @@ const ClassDiagram = () => {
                 type: methodType || '',
                 parameters: parameters
             });
-    
+
             // Actualizar el nodo con los métodos nuevos
             myDiagram.model.setDataProperty(node.data, 'methods', methods);
             
@@ -796,11 +809,23 @@ const ClassDiagram = () => {
             myDiagram.model.updateTargetBindings(node.data);
             
             myDiagram.commitTransaction("Add Method"); // Finalizar la transacción
+
+            // Actualiza la base de datos con el modelo modificado
+            const updatedModelJson = myDiagram.model.toJson(); // Obtiene la representación actualizada del modelo
+            try {
+                await updateModelData(documentIdRef.current, updatedModelJson); // Actualiza Firestore
+                console.log("Modelo actualizado en Firestore tras agregar método.");
+            } catch (error) {
+                console.error("Error al actualizar Firestore tras agregar método:", error);
+            }
         } else {
             alert("Method name is required!");
         }
     }
-    
+
+
+
+
     // Boton para el boton "Anadir clase"
     const handleAddClass = () => {
         if (!myDiagram || !(myDiagram instanceof go.Diagram)) {
@@ -1119,126 +1144,6 @@ const ClassDiagram = () => {
     };
     
 
-    /*const handleAddLink = () => {
-        if (!fromNode || !toNode) {
-            console.warn("Selecciona dos nodos para crear un enlace.");
-            return;
-        }
-    
-        const linkKey = generatekeyEnlace2(); // Generar una clave única para el enlace
-    
-        // Datos del nuevo enlace
-        const newLinkData = {
-            key: linkKey,
-            from: fromNode.key,
-            to: toNode.key,
-            startLabel: ".", 
-            centerLabel: "...",
-            endLabel: ".", 
-            category: linkType // Este debería ser 'Generalization', 'Dependency', 'AssociationClass', etc.
-        };
-    
-        console.log("Nuevo enlace a añadir:", newLinkData);
-    
-        // Iniciar transacción para agregar el enlace
-        myDiagram.startTransaction("add new link");
-    
-        // Añadir el enlace al modelo del diagrama
-        myDiagram.model.addLinkData(newLinkData);
-    
-        // Si el enlace es de tipo 'AssociationClass', crea un nodo intermedio
-        if (linkType === 'AssociationClass') {
-            const associationClassKey = generateKey(); // Generar una clave única para la clase asociada
-    
-            const associationClassNode = {
-                key: associationClassKey,
-                loc: '0 0', // Posición inicial del nodo (puedes ajustar según sea necesario)
-                properties: [], // Atributos de la clase
-                methods: [], // Métodos de la clase
-                isAssociationClass: true, // Etiqueta para indicar que este nodo es una 'AssociationClass'
-                linkedToLink: linkKey, // Relacionar este nodo con el enlace
-                name: "New Association Class" // Nombre inicial
-            };
-    
-            console.log("Nuevo nodo 'AssociationClass' a añadir:", associationClassNode);
-    
-            // Añadir el nodo intermedio al modelo del diagrama
-            myDiagram.model.addNodeData(associationClassNode);
-        }
-    
-        // Finalizar la transacción
-        myDiagram.commitTransaction("add new link");
-    
-        const updatedModelJson = JSON.stringify(myDiagram.model.toJson(), null, 2);
-        setModelJson(updatedModelJson);
-    };*/
-    
-    
-    // Luego, tu función handleAddLink
-    /*const handleAddLink = () => {
-        if (!fromNode || !toNode) {
-            console.warn("Selecciona dos nodos para crear un enlace.");
-            return;
-        }
-    
-        const linkKey = generatekeyEnlace2(); // Generar una clave única para el enlace
-    
-        // Datos del nuevo enlace
-        const newLinkData = {
-            key: linkKey,
-            from: fromNode.key,
-            to: toNode.key,
-            startLabel: ".",
-            centerLabel: "...",
-            endLabel: ".",
-            category: linkType // Este debería ser 'Generalization', 'Dependency', 'AssociationClass', etc.
-        };
-    
-        console.log("Nuevo enlace a añadir:", newLinkData);
-    
-        // Iniciar transacción para agregar el enlace
-        myDiagram.startTransaction("add new link");
-    
-        // Añadir el enlace al modelo del diagrama
-        myDiagram.model.addLinkData(newLinkData);
-    
-        // Verificar si ya existe un nodo 'AssociationClass' entre estos dos nodos
-        const existingAssociationNode = myDiagram.model.findNodeData(node => 
-            node.isAssociationClass && 
-            (node.linkedToLink === linkKey)
-        );
-    
-        // Si el nodo no existe, créalo
-        if (!existingAssociationNode) {
-            const associationClassKey = generateKey(); // Generar una clave única para la clase asociada
-    
-            const associationClassNode = {
-                key: associationClassKey,
-                loc: `0 0`, // Posición media
-                properties: [], // Atributos de la clase
-                methods: [], // Métodos de la clase
-                isAssociationClass: true, // Etiqueta para indicar que este nodo es una 'AssociationClass'
-                linkedToLink: linkKey, // Relacionar este nodo con el enlace
-                name: "Nueva Clase Asociación" // Nombre inicial
-            };
-    
-            console.log("Nuevo nodo 'AssociationClass' a añadir:", associationClassNode);
-    
-            // Añadir el nodo intermedio al modelo del diagrama
-            myDiagram.model.addNodeData(associationClassNode);
-        } else {
-            console.log("El nodo 'AssociationClass' ya existe entre estos nodos.");
-        }
-    
-        // Finalizar la transacción
-        myDiagram.commitTransaction("add new link");
-    
-        const updatedModelJson = JSON.stringify(myDiagram.model.toJson(), null, 2);
-        setModelJson(updatedModelJson);
-    };*/
-    
-
-
     ////////////////////////////////////////////////////////////////////////////////// 
     
     // Listener para el evento 'SelectionMoved' del diagrama
@@ -1344,22 +1249,6 @@ const ClassDiagram = () => {
         });
     };
     
-    // Listener para capturar cambios en los enlaces
-    /*function handleLinkSelection(myDiagram, documentId) {
-        myDiagram.addDiagramListener("ChangedSelection", (e) => {
-            const link = e.subject.first(); // Obtén el primer enlace seleccionado
-            if (link instanceof go.Link) {
-                console.log("Enlace seleccionado:", link.data);
-    
-                const updatedModelJson = myDiagram.model.toJson();
-                console.log("Modelo actualizado tras seleccionar un enlace:", updatedModelJson);
-                
-                // Llama a tu función de actualización de Firebase aquí
-                updateModelData(documentId, updatedModelJson);
-            }
-        });
-    }*/
-    
 
     function handleLinkSelection(myDiagram, documentId) {
         let previousModelJson = myDiagram.model.toJson(); // Almacena el modelo inicial
@@ -1402,111 +1291,69 @@ const ClassDiagram = () => {
         });
     }
     
-
-
-
-    // Listener para capturar cambios en los enlaces
-    const ListenersEnlaces = (myDiagram, setModelJson) => {
-        // Listener para enlaces dibujados o actualizados
-        myDiagram.addDiagramListener('LinkDrawn', (e) => {
-            const link = e.subject;
-            if (link) {
-                const linkData = link.data;
-        
-                console.log("Nuevo enlace dibujado:", JSON.stringify(linkData, null, 2));
-        
-                // Actualiza el modelo tras crear el enlace
+    const ListenerNodeCreated = (myDiagram, setModelJson, documentIdRef) => {
+        myDiagram.addModelChangedListener(async (e) => {
+            if (e.change === go.ChangedEvent.Insert && e.modelChange === "nodeDataArray") {
+                // Un nuevo nodo ha sido insertado en el modelo
+                const newNodeData = e.newValue; // Obtiene los datos del nuevo nodo
+                console.log("Nuevo nodo agregado al modelo:", newNodeData);
+    
+                // Inicializar atributos y métodos si aún no están definidos
+                const updatedNodeData = {
+                    ...newNodeData,
+                    attributes: newNodeData.attributes || [],  // Inicializa atributos si es necesario
+                    methods: newNodeData.methods || []         // Inicializa métodos si es necesario
+                };
+    
+                // Actualiza el modelo con los nuevos datos
+                myDiagram.model.setDataProperty(newNodeData, 'attributes', updatedNodeData.attributes);
+                myDiagram.model.setDataProperty(newNodeData, 'methods', updatedNodeData.methods);
+                myDiagram.model.updateTargetBindings(newNodeData); // Asegúrate de que el modelo esté actualizado
+    
+                // Actualiza el modelo JSON para Firestore
                 const updatedModelJson = myDiagram.model.toJson();
-                console.log("Modelo actualizado tras crear enlace:", updatedModelJson);
-        
-                // Actualiza Firestore o el estado local
-                if (documentIdRef.current) {
-                    updateModelData(documentIdRef.current, updatedModelJson);
+    
+                // Actualiza Firestore con el modelo modificado
+                try {
+                    await updateModelData(documentIdRef.current, updatedModelJson);
+                    console.log("Modelo actualizado en Firestore.");
+                } catch (error) {
+                    console.error("Error al actualizar Firestore:", error);
                 }
-                setModelJson(updatedModelJson);
-            }
-        });
-        
-        // Listener para enlaces reubicados (relinked)
-        myDiagram.addDiagramListener('LinkRelinked', (e) => {
-            const link = e.subject;
-            if (link) {
-                const linkData = link.data;
-        
-                console.log("Enlace reubicado o relinked:", JSON.stringify(linkData, null, 2));
-        
-                // Actualiza el modelo tras el relink
-                const updatedModelJson = myDiagram.model.toJson();
-                console.log("Modelo actualizado tras relink:", updatedModelJson);
-        
-                if (documentIdRef.current) {
-                    updateModelData(documentIdRef.current, updatedModelJson);
-                }
+    
+                // Actualiza el estado del modelo JSON local
                 setModelJson(updatedModelJson);
             }
         });
     };
-    
-    // Añadir un listener para el evento 'Modified' del diagrama
-    const ListenersModificar = (myDiagram) => {
-        myDiagram.addDiagramListener('Modified', (e) => {
-            const button = document.getElementById('SaveButton');
-            if (button) button.disabled = !myDiagram.isModified;
-            const idx = document.title.indexOf('*');
-            if (myDiagram.isModified) {
-                if (idx < 0) document.title += '*';
-            } else {
-                if (idx >= 0) document.title = document.title.slice(0, idx);
-            }
-        });   
-    }    
 
-    // Listener para la edición de texto
-    const ListenersTexto = (myDiagram) => {
-        myDiagram.addDiagramListener('TextEdited', async (e) => {
-            const editedTextBlock = e.subject; // El TextBlock editado
-            const part = editedTextBlock.part;   // Parte a la que pertenece el TextBlock
-            
-            if (part instanceof go.Node) {
-                // Actualizar datos del nodo en Firestore
-                const nodeData = part.data; // Obtener los datos del nodo
-                const nodeRef = doc(db, 'nodos', nodeData.key); // Referencia al documento en Firestore
+    const ListenerAddAttributesMethods = (myDiagram, documentIdRef) => {
+       /* if (!myDiagram) return; // Verifica que el diagrama esté inicializado
     
-                try {
-                    await updateDoc(nodeRef, {
-                        text: nodeData.text, // Guarda el texto del nodo
-                        properties: nodeData.properties || [], // Si tienes propiedades, también las guarda
-                        methods: nodeData.methods || [] // Si tienes métodos, también los guarda
-                    });
-                    console.log("Nodo actualizado:", JSON.stringify(nodeData, null, 2));
-                } catch (error) {
-                    console.error("Error updating node:", error);
-                }
-            } else if (part instanceof go.Link) {
-                // Actualizar datos del enlace en Firestore
-                const linkData = part.data; // Obtener los datos del enlace
-                const linkRef = doc(db, 'links', linkData.key); // Referencia al documento en Firestore
+        myDiagram.addModelChangedListener(async (e) => {
+            if (e.change === go.ChangedEvent.Property) {
+                const nodeData = e.object; // Obtiene el nodo cuyo datos fueron modificados
     
-                try {
-                    // Aquí obtenemos el texto actualizado directamente del TextBlock editado
-                    const startLabel = part.findObject("startLabel").text; // Obteniendo el texto de la etiqueta de inicio
-                    const centerLabel = part.findObject("centerLabel").text; // Obteniendo el texto de la etiqueta central
-                    const endLabel = part.findObject("endLabel").text; // Obteniendo el texto de la etiqueta final
+                // Verifica si la propiedad que ha cambiado es "attributes" o "methods"
+                if (e.propertyName === "attributes" || e.propertyName === "methods") {
+                    console.log(`Cambio detectado en ${e.propertyName}:`, e.newValue);
     
-                    // Actualizar las etiquetas del enlace
-                    await updateDoc(linkRef, {
-                        startLabel: startLabel || 'defaultStartLabel', // Usa el valor por defecto si no hay
-                        centerLabel: centerLabel || 'defaultCenterLabel', // Usa el valor por defecto si no hay
-                        endLabel: endLabel || 'defaultEndLabel' // Usa el valor por defecto si no hay
-                    });
-                    console.log("Enlace actualizado:", JSON.stringify(linkData, null, 2));
-                } catch (error) {
-                    console.error("Error updating link:", error);
+                    // Actualiza Firestore con el modelo modificado
+                    const updatedModelJson = myDiagram.model.toJson(); // Obtiene la representación actualizada del modelo
+                    console.log("Modelo actualizado para Firestore:", updatedModelJson);
+    
+                    try {
+                        await updateModelData(documentIdRef.current, updatedModelJson);
+                        console.log("Modelo actualizado en Firestore tras agregar atributos o métodos.");
+                    } catch (error) {
+                        console.error("Error al actualizar Firestore:", error);
+                    }
                 }
             }
-        });
+        });*/
     };
     
+
 
     ////////////////////////////////////////////////////////////////////////////////
 
@@ -1591,8 +1438,75 @@ const ClassDiagram = () => {
         }
     };
 
+
     // Función para suscribirse a los cambios del modelData en Firestore en tiempo real
     const subscribeToModelData = (documentId) => {
+        try {
+            if (!db) throw new Error("Firestore DB no está inicializado.");
+            if (!documentId) throw new Error("documentId es indefinido o nulo.");
+    
+            const docRef = doc(db, "diagramas", documentId);
+    
+            const unsubscribe = onSnapshot(docRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    console.log("Datos obtenidos en tiempo real de Firestore:", data);
+    
+                    // Validación de datos
+                    if (data && data.modelData) {
+                        // Analizar la cadena JSON en un objeto
+                        let modelData;
+                        try {
+                            modelData = JSON.parse(data.modelData);
+                        } catch (e) {
+                            console.error("Error al analizar modelData:", e);
+                            return; // Salir si hay un error
+                        }
+    
+                        // Verifica que los datos del modelo sean válidos
+                        if (modelData.nodeDataArray || modelData.linkDataArray) {
+                            if (myDiagram) {
+                                // Actualizar el modelo del diagrama
+                                myDiagram.model = go.Model.fromJson(modelData);
+    
+                                // Reasignar las posiciones manualmente
+                                modelData.nodeDataArray.forEach((node) => {
+                                    const part = myDiagram.findPartForData(node);
+                                    if (part) {
+                                        const newLoc = go.Point.parse(node.loc);
+                                        part.position = newLoc;
+                                    }
+                                });
+    
+                                // Forzar la actualización del diagrama
+                                myDiagram.updateAllTargetBindings();
+                                myDiagram.requestUpdate();
+    
+                                // Actualizar estado en React (si aplica)
+                                setNodes(modelData.nodeDataArray);
+                                setModelJson(modelData);
+                            } else {
+                                console.error("myDiagram no está definido.");
+                            }
+                        } else {
+                            console.warn("Los datos del modelo están vacíos o son inválidos.");
+                        }
+                    } else {
+                        console.warn("El documento no contiene modelData.");
+                    }
+                } else {
+                    console.error("No se encontró el documento.");
+                }
+            });
+    
+            return unsubscribe; // Devuelve la función de cancelación de suscripción
+        } catch (error) {
+            console.error("Error suscribiéndose a modelData:", error.message || error);
+        }
+    };
+    
+     // Función para suscribirse a los cambios del modelData en Firestore en tiempo real
+    /*const subscribeToModelData = (documentId) => {
         try {
             if (!db) throw new Error("Firestore DB no está inicializado.");
             if (!documentId) throw new Error("documentId es indefinido o nulo.");
@@ -1605,57 +1519,79 @@ const ClassDiagram = () => {
                     const data = docSnap.data();
                     console.log("Datos obtenidos en tiempo real de Firestore:", data);
 
-                    // Analizar la cadena JSON en un objeto
-                    const modelData = JSON.parse(data.modelData);
+                    // Verificar si modelData existe y es una cadena válida
+                    if (data.modelData && typeof data.modelData === 'string') {
+                        let modelData;
+                        try {
+                            // Analizar la cadena JSON en un objeto
+                            modelData = JSON.parse(data.modelData);
+                        } catch (parseError) {
+                            console.error("Error al analizar modelData de Firestore:", parseError);
+                            return;
+                        }
 
-                    if ((modelData.nodeDataArray && modelData.nodeDataArray.length > 0) || 
-                        (modelData.linkDataArray && modelData.linkDataArray.length > 0)) {
+                        // Verificar si el modelData contiene nodos o enlaces válidos
+                        if ((modelData.nodeDataArray && modelData.nodeDataArray.length > 0) || 
+                            (modelData.linkDataArray && modelData.linkDataArray.length > 0)) {
 
-                        if (myDiagram) {
-                            // Actualizar el modelo del diagrama con los datos obtenidos
-                            myDiagram.model = go.Model.fromJson(modelData);
+                            if (myDiagram) {
+                                // Asegúrate de que no hay una transacción en progreso
+                                if (!myDiagram.isInTransaction) {
+                                    // Iniciar una transacción para actualizar el modelo
+                                    myDiagram.startTransaction("update model");
+                                    
+                                    // Reemplazar el modelo solo si no hay transacción en progreso
+                                    myDiagram.model = go.Model.fromJson(modelData);
 
-                            // Reasignar las posiciones manualmente después de establecer el modelo
-                            modelData.nodeDataArray.forEach((node) => {
-                                const part = myDiagram.findPartForData(node);
-                                if (part) {
-                                    const newLoc = go.Point.parse(node.loc);
-                                    part.position = newLoc;
+                                    // Reasignar las posiciones manualmente después de establecer el modelo
+                                    modelData.nodeDataArray.forEach((node) => {
+                                        const part = myDiagram.findPartForData(node);
+                                        if (part) {
+                                            const newLoc = go.Point.parse(node.loc);
+                                            part.position = newLoc;
+                                        }
+                                    });
+
+                                    // Actualizar el estado local del modelo
+                                    setNodes(modelData.nodeDataArray);
+                                    setModelJson(modelData);
+
+                                    // Forzar la actualización del diagrama
+                                    myDiagram.updateAllTargetBindings();
+                                    myDiagram.requestUpdate();
+
+                                    myDiagram.commitTransaction("update model"); // Finaliza la transacción
+                                } else {
+                                    console.warn("No se puede reemplazar el modelo mientras una transacción está en progreso.");
                                 }
-                            });
 
-                            setNodes(modelData.nodeDataArray);
+                                if (modelData.linkDataArray && modelData.linkDataArray.length > 0) {
+                                    console.log("Enlaces encontrados:", modelData.linkDataArray);
+                                }
 
-                            // Forzar la actualización del diagrama
-                            myDiagram.updateAllTargetBindings();
-                            myDiagram.requestUpdate();
-
-                            setModelJson(modelData);
-
-                            if (modelData.linkDataArray && modelData.linkDataArray.length > 0) {
-                                console.log("Enlaces encontrados:", modelData.linkDataArray);
+                                console.log("Model data actualizado en tiempo real:", modelData);
+                            } else {
+                                console.error("myDiagram no está definido.");
                             }
-
-                            console.log("Model data actualizado en tiempo real:", modelData);
                         } else {
-                            console.error("myDiagram no está definido.");
+                            console.warn("El campo modelData está vacío o es inválido.");
                         }
                     } else {
-                        console.warn("El campo modelData está vacío o es inválido.");
+                        console.warn("modelData no está presente o no es válido en el documento.");
                     }
                 } else {
                     console.error("No se encontró el documento.");
                 }
             });
-            
 
             return unsubscribe; // Devuelve la función de cancelación de suscripción
         } catch (error) {
             console.error("Error suscribiéndose a modelData:", error.message || error);
         }
-    };
+    };*/
 
-   
+
+
 
     ///////////////////////////////////////////////////////////////////////////////////
     // PARA ELIMINAR
