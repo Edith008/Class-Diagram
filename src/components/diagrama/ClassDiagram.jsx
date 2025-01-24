@@ -48,7 +48,6 @@ const ClassDiagram = () => {
     const [nodes, setNodes] = useState([]); // Estado para almacenar nodos
     const [fromNode, setFromNode] = useState(null); // Estado para el nodo de origen
     const [toNode, setToNode] = useState(null); // Estado para el nodo de destino
-    //const [linkType, setLinkType] = useState('Association'); // Estado para el tipo de enlace
     const [linkType, setLinkType] = useState(''); 
     const [selectedNode, setSelectedNode] = useState(null);
 
@@ -124,7 +123,8 @@ const ClassDiagram = () => {
                     createLinkTemplates(myDiagram)
                     ListenersMovimiento(myDiagram, setModelJson);
                     ListenerNodeCreated(myDiagram, setModelJson, documentIdRef);
-                    ListenerAddAttributesMethods(myDiagram.current, documentIdRef); // Agrega este listener
+                    ListenerLinkCreated(myDiagram, setModelJson, documentIdRef);
+                    //ListenerAddAttributesMethods(myDiagram.current, documentIdRef); // Agrega este listener
                     ListenerAddNodeEdit();
                     setModelJson(myDiagram.model.toJson());
 
@@ -378,131 +378,6 @@ const ClassDiagram = () => {
                         )
                     )
                 );
-            
-            
-            // Primero, asegúrate de tener la plantilla para el tipo de enlace 'AssociationClass'
-            /*myDiagram.linkTemplateMap.add('AssociationClass',
-        new go.Link(linkStyle())
-        .add(
-            new go.Shape(),  // Línea del enlace
-            new go.Panel("Auto",  // Panel que contiene el cuadrado y el texto
-                {
-                    alignmentFocus: go.Spot.Center, // Alineación al centro
-                    segmentFraction: 0.5  // Colocar el panel en el centro del enlace
-                }
-            ).add(
-                // Rectángulo como fondo
-                new go.Shape("Rectangle", {
-                    fill: "lightgray",  // Color de fondo
-                    stroke: "black",  // Color del borde
-                    strokeWidth: 1.5,  // Grosor del borde
-                    minSize: new go.Size(60, 60) // Tamaño mínimo
-                }),
-                
-                // Crear un Panel de Tabla para organizar el contenido
-                new go.Panel("Table", {
-                    defaultRowSeparatorStroke: "black",
-                    margin: new go.Margin(0, 0, 0, 0)  // Margen para el panel
-                }).add(
-                    // Header "Clase"
-                    new go.TextBlock('Clase', {
-                        row: 0,
-                        columnSpan: 2,
-                        margin: 3,  // Cambiar margen si es necesario
-                        alignment: go.Spot.Center,
-                        font: 'bold 12pt sans-serif',
-                        isMultiline: true,  // Permitir multilinea si es necesario
-                        maxWidth: 100,  // Limitar el ancho máximo
-                        editable: true,
-                    })
-                    .bindTwoWay('text', 'name'),
-
-                    // Properties header
-                    new go.TextBlock('Atributos', {
-                        row: 1,
-                        columnSpan: 2,
-                        alignment: go.Spot.Center,
-                        font: 'italic 10pt sans-serif'
-                    })
-                    .bindObject('visible', 'visible', v => !v, undefined, 'PROPERTIES'),
-
-                    // Properties panel
-                    new go.Panel('Vertical', {
-                        name: 'PROPERTIES',
-                        row: 1,
-                        margin: 3,
-                        stretch: go.Stretch.Horizontal,
-                        defaultAlignment: go.Spot.Left,
-                        itemTemplate: propertyTemplate,
-                    })
-                    .bindTwoWay('itemArray', 'properties'),
-
-                    // Agregar botón de atributos
-                    go.GraphObject.make("Button",
-                        {
-                            row: 1,
-                            column: 0,
-                            alignment: go.Spot.TopLeft,
-                            click: (e, obj) => addPropertyToNode(e, obj)
-                        },
-                        new go.TextBlock("+", { font: "10pt sans-serif" })
-                    ),
-
-                    // Expand button for properties
-                    go.GraphObject.build("PanelExpanderButton", {
-                        row: 1,
-                        column: 1,
-                        alignment: go.Spot.TopRight,
-                        visible: false,
-                    }, "PROPERTIES")
-                    .bind('visible', 'properties', arr => arr.length > 0),
-
-                    // Methods header
-                    new go.TextBlock('Métodos', {
-                        row: 2,
-                        columnSpan: 2,
-                        alignment: go.Spot.Center,
-                        font: 'italic 10pt sans-serif'
-                    })
-                    .bindObject('visible', 'visible', v => !v, undefined, 'METHODS'),
-
-                    // Methods panel
-                    new go.Panel('Vertical', {
-                        name: 'METHODS',
-                        row: 2,
-                        margin: 3,
-                        stretch: go.Stretch.Horizontal,
-                        defaultAlignment: go.Spot.Left,
-                        itemTemplate: methodTemplate
-                    })
-                    .bindTwoWay('itemArray', 'methods'),
-
-                    // Agregar botón de métodos
-                    go.GraphObject.make("Button",
-                        {
-                            row: 2,
-                            column: 0,
-                            alignment: go.Spot.TopLeft,
-                            click: (e, obj) => addMethodToNode(e, obj)
-                        },
-                        new go.TextBlock("+", { font: "10pt sans-serif" })
-                    ),
-
-                    // Expand button for methods
-                    go.GraphObject.build("PanelExpanderButton", {
-                        row: 2,
-                        column: 1,
-                        alignment: go.Spot.TopRight,
-                        visible: false
-                    }, "METHODS")
-                    .bind('visible', 'methods', arr => arr.length > 0)
-                )
-            )
-        )
-    );*/
-
-
-            
             }
             
             if (linkType === 'Realization') {
@@ -858,7 +733,7 @@ const ClassDiagram = () => {
  
 
     ///////////////////////////////////////////////////////////////////////////////////
-    // TODO DE ENLACES O RELACION
+    // TODO DE ENLACES 
 
     // Define the link template para load
     const createLinkTemplates = (diagram) => {
@@ -1101,7 +976,7 @@ const ClassDiagram = () => {
 
     };
 
-    // Botón para "Añadir enlace"     originalllllllllllll
+    // Botón para "Añadir enlace"     
     const handleAddLink = () => {
         if (!fromNode || !toNode) {
             console.warn("Selecciona dos nodos para crear un enlace.");
@@ -1249,7 +1124,7 @@ const ClassDiagram = () => {
         });
     };
     
-
+    // Listener para capturar selecciones de enlaces
     function handleLinkSelection(myDiagram, documentId) {
         let previousModelJson = myDiagram.model.toJson(); // Almacena el modelo inicial
     
@@ -1270,7 +1145,7 @@ const ClassDiagram = () => {
         });
     }
 
-    // Listener para capturar cambios en los enlaces
+    // Listener para capturar ediciones de texto en enlaces
     function handleTextEdited(myDiagram, documentId) {
         myDiagram.addDiagramListener("TextEdited", (e) => {
             const editedPart = e.subject.part; // Obtén la parte editada
@@ -1291,6 +1166,7 @@ const ClassDiagram = () => {
         });
     }
     
+    // Listener nuevos nodos creados
     const ListenerNodeCreated = (myDiagram, setModelJson, documentIdRef) => {
         myDiagram.addModelChangedListener(async (e) => {
             if (e.change === go.ChangedEvent.Insert && e.modelChange === "nodeDataArray") {
@@ -1327,33 +1203,37 @@ const ClassDiagram = () => {
         });
     };
 
-    const ListenerAddAttributesMethods = (myDiagram, documentIdRef) => {
-       /* if (!myDiagram) return; // Verifica que el diagrama esté inicializado
-    
+    // Listener nuevos enlaces creados
+    const ListenerLinkCreated = (myDiagram, setModelJson, documentIdRef) => {
         myDiagram.addModelChangedListener(async (e) => {
-            if (e.change === go.ChangedEvent.Property) {
-                const nodeData = e.object; // Obtiene el nodo cuyo datos fueron modificados
-    
-                // Verifica si la propiedad que ha cambiado es "attributes" o "methods"
-                if (e.propertyName === "attributes" || e.propertyName === "methods") {
-                    console.log(`Cambio detectado en ${e.propertyName}:`, e.newValue);
-    
-                    // Actualiza Firestore con el modelo modificado
-                    const updatedModelJson = myDiagram.model.toJson(); // Obtiene la representación actualizada del modelo
-                    console.log("Modelo actualizado para Firestore:", updatedModelJson);
-    
-                    try {
-                        await updateModelData(documentIdRef.current, updatedModelJson);
-                        console.log("Modelo actualizado en Firestore tras agregar atributos o métodos.");
-                    } catch (error) {
-                        console.error("Error al actualizar Firestore:", error);
-                    }
+            if (e.change === go.ChangedEvent.Insert && e.modelChange === "linkDataArray") {
+                // Un nuevo enlace ha sido insertado en el modelo
+                const newLinkData = e.newValue; // Obtiene los datos del nuevo enlace
+                console.log("Nuevo enlace agregado al modelo:", newLinkData);
+        
+                // Actualiza el modelo con los nuevos enlaces
+                myDiagram.model.setDataProperty(newLinkData, 'from', newLinkData.from);
+                myDiagram.model.setDataProperty(newLinkData, 'to', newLinkData.to);
+                myDiagram.model.setDataProperty(newLinkData, 'category', newLinkData.category);
+                myDiagram.model.updateTargetBindings(newLinkData); // Asegúrate de que el modelo esté actualizado
+        
+                // Actualiza el modelo JSON para Firestore
+                const updatedModelJson = myDiagram.model.toJson();
+        
+                // Actualiza Firestore con el modelo modificado
+                try {
+                    await updateModelData(documentIdRef.current, updatedModelJson);
+                    console.log("Modelo actualizado en Firestore.");
+                } catch (error) {
+                    console.error("Error al actualizar Firestore:", error);
                 }
+        
+                // Actualiza el estado del modelo JSON local
+                setModelJson(updatedModelJson);
             }
-        });*/
+        });
     };
     
-
 
     ////////////////////////////////////////////////////////////////////////////////
 
@@ -1505,93 +1385,6 @@ const ClassDiagram = () => {
         }
     };
     
-     // Función para suscribirse a los cambios del modelData en Firestore en tiempo real
-    /*const subscribeToModelData = (documentId) => {
-        try {
-            if (!db) throw new Error("Firestore DB no está inicializado.");
-            if (!documentId) throw new Error("documentId es indefinido o nulo.");
-
-            const docRef = doc(db, "diagramas", documentId);
-
-            // Suscripción en tiempo real a los cambios del documento
-            const unsubscribe = onSnapshot(docRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    console.log("Datos obtenidos en tiempo real de Firestore:", data);
-
-                    // Verificar si modelData existe y es una cadena válida
-                    if (data.modelData && typeof data.modelData === 'string') {
-                        let modelData;
-                        try {
-                            // Analizar la cadena JSON en un objeto
-                            modelData = JSON.parse(data.modelData);
-                        } catch (parseError) {
-                            console.error("Error al analizar modelData de Firestore:", parseError);
-                            return;
-                        }
-
-                        // Verificar si el modelData contiene nodos o enlaces válidos
-                        if ((modelData.nodeDataArray && modelData.nodeDataArray.length > 0) || 
-                            (modelData.linkDataArray && modelData.linkDataArray.length > 0)) {
-
-                            if (myDiagram) {
-                                // Asegúrate de que no hay una transacción en progreso
-                                if (!myDiagram.isInTransaction) {
-                                    // Iniciar una transacción para actualizar el modelo
-                                    myDiagram.startTransaction("update model");
-                                    
-                                    // Reemplazar el modelo solo si no hay transacción en progreso
-                                    myDiagram.model = go.Model.fromJson(modelData);
-
-                                    // Reasignar las posiciones manualmente después de establecer el modelo
-                                    modelData.nodeDataArray.forEach((node) => {
-                                        const part = myDiagram.findPartForData(node);
-                                        if (part) {
-                                            const newLoc = go.Point.parse(node.loc);
-                                            part.position = newLoc;
-                                        }
-                                    });
-
-                                    // Actualizar el estado local del modelo
-                                    setNodes(modelData.nodeDataArray);
-                                    setModelJson(modelData);
-
-                                    // Forzar la actualización del diagrama
-                                    myDiagram.updateAllTargetBindings();
-                                    myDiagram.requestUpdate();
-
-                                    myDiagram.commitTransaction("update model"); // Finaliza la transacción
-                                } else {
-                                    console.warn("No se puede reemplazar el modelo mientras una transacción está en progreso.");
-                                }
-
-                                if (modelData.linkDataArray && modelData.linkDataArray.length > 0) {
-                                    console.log("Enlaces encontrados:", modelData.linkDataArray);
-                                }
-
-                                console.log("Model data actualizado en tiempo real:", modelData);
-                            } else {
-                                console.error("myDiagram no está definido.");
-                            }
-                        } else {
-                            console.warn("El campo modelData está vacío o es inválido.");
-                        }
-                    } else {
-                        console.warn("modelData no está presente o no es válido en el documento.");
-                    }
-                } else {
-                    console.error("No se encontró el documento.");
-                }
-            });
-
-            return unsubscribe; // Devuelve la función de cancelación de suscripción
-        } catch (error) {
-            console.error("Error suscribiéndose a modelData:", error.message || error);
-        }
-    };*/
-
-
-
 
     ///////////////////////////////////////////////////////////////////////////////////
     // PARA ELIMINAR
@@ -1749,7 +1542,7 @@ const ClassDiagram = () => {
         link.download = 'diagrama.json'; // Nombre del archivo JSON
         link.click();// Simula un clic en el enlace para iniciar la descarga
         window.URL.revokeObjectURL(url);// Limpia el enlace temporal
-      }
+    }
 
     function descargarSVG() {
         const svg = myDiagram.makeSvg({ scale: 1, background: 'white', documentTitle: 'Diagrama de secuencia' });
@@ -1770,6 +1563,8 @@ const ClassDiagram = () => {
         link.click();
     }
 
+    // 
+    // 1. Función para descargar el diagrama en formato XMI
     function descargarArchivoXMI() {
         const json = JSON.parse(myDiagram.model.toJson());
     
@@ -1983,19 +1778,21 @@ const ClassDiagram = () => {
     }
 
 
+    //..................................................................................................................
+    // 2. Función para importar un archivo XMI y convertirlo en nodos
     const importarArchivoXMI = (event) => {
         const file = event.target.files[0];
         if (file) {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            const content = e.target.result;
-            console.log("Contenido del archivo XMI:", content);
-            procesarXMI(content);
-          };
-          reader.readAsText(file); // Leer el archivo como texto
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const content = e.target.result;
+                console.log("Contenido del archivo XMI:", content);
+                procesarXMI(content);
+            };
+            reader.readAsText(file); // Leer el archivo como texto
         }
     };
-      
+    
     // Procesar contenido XMI y convertir a nodos
     const procesarXMI = (content) => {
         const parser = new DOMParser();
@@ -2003,34 +1800,7 @@ const ClassDiagram = () => {
     
         const nodes = [];
         const links = [];
-    
-        // Primero, construimos un mapa de todos los tipos primitivos y personalizados
-        const typesMap = new Map();
-    
-        // Obtener todos los tipos de datos (primitivos y personalizados)
-        const primitiveTypes = xmlDoc.getElementsByTagName("primitiveType");
-        const dataTypes = xmlDoc.getElementsByTagName("dataType");
-    
-        // Recorrer los tipos primitivos
-        for (let i = 0; i < primitiveTypes.length; i++) {
-            const typeId = primitiveTypes[i].getAttribute("xmi:id");
-            const typeName = primitiveTypes[i].getAttribute("name");
-            if (typeId && typeName) {
-                typesMap.set(typeId, typeName);
-            }
-        }
-    
-        // Recorrer los tipos de datos (personalizados)
-        for (let i = 0; i < dataTypes.length; i++) {
-            const typeId = dataTypes[i].getAttribute("xmi:id");
-            const typeName = dataTypes[i].getAttribute("name");
-            if (typeId && typeName) {
-                typesMap.set(typeId, typeName);
-            }
-        }
-    
-        console.log("Tipos encontrados en el XMI:", typesMap);  // Para depuración
-    
+
         // Obtener clases
         const classes = xmlDoc.getElementsByTagName("packagedElement");
         for (let i = 0; i < classes.length; i++) {
@@ -2065,12 +1835,8 @@ const ClassDiagram = () => {
                         console.log(`Tipo no encontrado para el atributo ${attributeName} en la clase ${className}.`);
                     }
                 
-                    attributes.push({
-                        name: attributeName || "AtributoSinNombre",
-                        type: attributeType,
-                    });
+                    attributes.push({ name: attributeName || "AtributoSinNombre", type: attributeType,});
                 }
-                
     
                 // Extraer métodos (operaciones) de la clase
                 const methods = [];
@@ -2094,81 +1860,64 @@ const ClassDiagram = () => {
                 }
             }
         }
+
     
-        /*// Obtener asociaciones (igual que antes)
-        const associations = xmlDoc.getElementsByTagName("uml:Association");
-        for (let i = 0; i < associations.length; i++) {
-            const ownedEnds = associations[i].getElementsByTagName("ownedEnd");
-            if (ownedEnds.length >= 2) {
-                const sourceId = ownedEnds[0].getAttribute("xmi:idref");
-                const targetId = ownedEnds[1].getAttribute("xmi:idref");
-    
-                if (sourceId && targetId && nodes.some(node => node.key === sourceId) && nodes.some(node => node.key === targetId)) {
-                    links.push({ from: sourceId, to: targetId, category: 'Association' });
+        // Procesar enlaces (asociaciones, generalizaciones, composición, agregación)
+        const connectors = xmlDoc.getElementsByTagName("connector");
+        for (let i = 0; i < connectors.length; i++) {
+            const connector = connectors[i];
+            const sourceId = connector.querySelector("source")?.getAttribute("xmi:idref");
+            const targetId = connector.querySelector("target")?.getAttribute("xmi:idref");
+            const connectorType = connector.querySelector("properties")?.getAttribute("ea_type");
+            const aggregation = connector.querySelector("target > type")?.getAttribute("aggregation");
+            const centerLabel = connector.getAttribute("name") || ""; // Usa el atributo 'name' como etiqueta central
+            const startLabel = connector.querySelector("source > type")?.getAttribute("multiplicity") || ""; // Multiplicidad del origen
+            const endLabel = connector.querySelector("target > type")?.getAttribute("multiplicity") || "";   // Multiplicidad del destino
+
+            if (sourceId && targetId) {
+                let linkCategory = connectorType || "Association"; // Por defecto, lo tratamos como asociación.
+
+                // Identificar composición y agregación según el atributo `aggregation`.
+                if (aggregation === "composite") {
+                    linkCategory = "Composition";
+                } else if (aggregation === "shared") {
+                    linkCategory = "Aggregation";
                 }
-            }
-        }
-    
-        // Obtener generalizaciones (igual que antes)
-        const generalizations = xmlDoc.getElementsByTagName("uml:Generalization");
-        for (let i = 0; i < generalizations.length; i++) {
-            const sourceId = generalizations[i].getAttribute("general");
-            const targetId = generalizations[i].getAttribute("xmi:id");
-    
-            if (sourceId && targetId && nodes.some(node => node.key === sourceId)) {
-                links.push({ from: targetId, to: sourceId, category: 'Generalization' });
-            }
-        }*/
 
-        // Obtener asociaciones
-        const associations = xmlDoc.getElementsByTagName("uml:Association");
-        for (let i = 0; i < associations.length; i++) {
-            const ownedEnds = associations[i].getElementsByTagName("ownedEnd");
-            if (ownedEnds.length >= 2) {
-                const sourceId = ownedEnds[0].getAttribute("xmi:idref");
-                const targetId = ownedEnds[1].getAttribute("xmi:idref");
+                // Identificar relaciones adicionales
+                if (connectorType === "Realisation") {
+                    linkCategory = "Realization";
+                } else if (connectorType === "Dependency") {
+                    linkCategory = "Dependency";
+                }
 
-                // Debugging
-                console.log(`Asociación encontrada: sourceId=${sourceId}, targetId=${targetId}`);
+                // Identificar clase intermedia (cuando hay una propiedad `associationclass`)
+                const intermediateClassId = connector.querySelector("extendedProperties")?.getAttribute("associationclass");
+                let intermediateClassName = ""; // Nombre de la AssociationClass
 
-                if (sourceId && targetId && nodes.some(node => node.key === sourceId) && nodes.some(node => node.key === targetId)) {
-                    links.push({ from: sourceId, to: targetId, category: 'Association' });
-                } else {
-                    // Agregar más depuración para ver por qué no se agrega
-                    if (!sourceId || !targetId) {
-                        console.log(`Faltan IDs: sourceId=${sourceId}, targetId=${targetId}`);
-                    }
-                    if (!nodes.some(node => node.key === sourceId)) {
-                        console.log(`El nodo de origen no existe: ${sourceId}`);
-                    }
-                    if (!nodes.some(node => node.key === targetId)) {
-                        console.log(`El nodo de destino no existe: ${targetId}`);
+                if (intermediateClassId) {
+                    linkCategory = "AssociationClass";
+
+                    // Buscar la clase intermedia en el documento
+                    const intermediateClass = xmlDoc.querySelector(`element[xmi\\:id="${intermediateClassId}"]`);
+                    if (intermediateClass) {
+                        intermediateClassName = intermediateClass.getAttribute("name") || "Unnamed AssociationClass";
                     }
                 }
+
+                // Crear la entrada en la lista de enlaces
+                links.push({
+                    from: sourceId,
+                    to: targetId,
+                    category: linkCategory,
+                    startLabel: startLabel || ".", // Etiqueta inicial
+                    centerLabel: centerLabel || ".", // Etiqueta central con prioridad para el nombre de AssociationClass
+                    endLabel: endLabel || ".", // Etiqueta final
+                    namee: intermediateClassName || "nuevooo", // Nombre de la AssociationClass
+                });
             }
         }
 
-        // Obtener generalizaciones
-        const generalizations = xmlDoc.getElementsByTagName("uml:Generalization");
-        for (let i = 0; i < generalizations.length; i++) {
-            const sourceId = generalizations[i].getAttribute("general");
-            const targetId = generalizations[i].getAttribute("xmi:id");
-
-            // Debugging
-            console.log(`Generalización encontrada: sourceId=${sourceId}, targetId=${targetId}`);
-
-            if (sourceId && targetId && nodes.some(node => node.key === sourceId)) {
-                links.push({ from: targetId, to: sourceId, category: 'Generalization' });
-            } else {
-                // Agregar más depuración para ver por qué no se agrega
-                if (!sourceId || !targetId) {
-                    console.log(`Faltan IDs: sourceId=${sourceId}, targetId=${targetId}`);
-                }
-                if (!nodes.some(node => node.key === sourceId)) {
-                    console.log(`El nodo de origen no existe: ${sourceId}`);
-                }
-            }
-        }
 
     
         // Actualizar el modelo GoJS
@@ -2176,12 +1925,15 @@ const ClassDiagram = () => {
             myDiagram.model.startTransaction("Importar XMI");
     
             try {
-                myDiagram.model.clear();
-                myDiagram.model.nodeDataArray = nodes;
-                myDiagram.model.linkDataArray = links;
-    
-                console.log("Nodos:", nodes);
+                myDiagram.model.nodeDataArray = [];
+                myDiagram.model.linkDataArray = [];
+                nodes.forEach(node => myDiagram.model.addNodeData(node));
+                links.forEach(link => myDiagram.model.addLinkData(link));
+                
+                console.log("Nodos procesados:", nodes);
                 console.log("Enlaces procesados:", links);
+                console.log("Modelo actual del diagrama:", myDiagram.model.toJson());
+  
             } catch (error) {
                 console.error("Error al actualizar el modelo:", error);
             } finally {
@@ -2190,13 +1942,8 @@ const ClassDiagram = () => {
         }
     };
     
-    
-    
-    
-    
-      
-      
-      
+
+
     if (!modelJson) {return <div>Loading...</div>; }
 
     return (
@@ -2210,9 +1957,6 @@ const ClassDiagram = () => {
                 </div>
                 <div className="botones_navbar">
                     <Button className="botones_navbar_button" onClick={importarArchivo}>Importar</Button>
-                    {/*<Button className="botones_navbar_button"  onClick={importarArchivoXMI}>ImportarArchivoAE</Button>*/}
-                   
-                    {/*<Button id="SaveButton" className="botones_navbar_button" onClick={() => save(diagramaId)}>Guardar</Button> */}
                     <Button className="botones_navbar_button" onClick={descargarArchivoTXT}>Descargar</Button>
                     <Button className="botones_navbar_button" onClick={logout}>Logout</Button>
                     <input type="file" accept=".xmi" onChange={importarArchivoXMI} style={{ marginTop: "20px" }}/>
@@ -2243,26 +1987,15 @@ const ClassDiagram = () => {
                     <Modal>
                         <h2>Agregar Nueva Propiedad</h2>
                         <label>Nombre:</label>
-                        <input
-                        type="text"
-                        value={propertyName}
-                        onChange={(e) => setPropertyName(e.target.value)}
-                        />
+                            <input type="text" value={propertyName} onChange={(e) => setPropertyName(e.target.value)} />
                         <label>Tipo:</label>
-                        <input
-                        type="text"
-                        value={propertyType}
-                        onChange={(e) => setPropertyType(e.target.value)}
-                        />
+                            <input type="text" value={propertyType} onChange={(e) => setPropertyType(e.target.value)} />
                         <label>Visibilidad:</label>
-                        <select
-                        value={propertyVisibility}
-                        onChange={(e) => setPropertyVisibility(e.target.value)}
-                        >
-                        <option value="public">Public</option>
-                        <option value="private">Private</option>
-                        <option value="protected">Protected</option>
-                        </select>
+                            <select value={propertyVisibility} onChange={(e) => setPropertyVisibility(e.target.value)}>
+                                <option value="public">Public</option>
+                                <option value="private">Private</option>
+                                <option value="protected">Protected</option>
+                            </select>
                         <Button onClick={handleSubmitProperty}>Guardar Propiedad</Button>
                     </Modal>
                     )}
@@ -2273,7 +2006,7 @@ const ClassDiagram = () => {
                         {/*<button type="submit" onClick={() => setModalOpen(true)}><strong>Add atributos</strong></button><br />*/}
                         <p><strong>HERRAMIENTAS:</strong></p>
                         <Button className="btn" onClick={() => myDiagram.commandHandler.undo()} style={{ width: '150px', margin: '5px' }}>Deshacer</Button><br />
-                        <Button className="btn" onClick={() => myDiagram.commandHandler.deleteSelection()} style={{ width: '150px', margin: '5px' }}>Eliminar Selección</Button><br />
+                        {/*<Button className="btn" onClick={() => myDiagram.commandHandler.deleteSelection()} style={{ width: '150px', margin: '5px' }}>Eliminar Selección</Button><br />*/}
                         <Button className="btn" onClick={() => myDiagram.commandHandler.selectAll()} style={{ width: '150px', margin: '5px' }}>Seleccionar Todo</Button><br /><br />
                         <Button className="btn" onClick={handleAddClass} style={{ width: '150px', margin: '5px' }}>Añadir Clase</Button><br />
                             
